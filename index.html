@@ -74,6 +74,19 @@
   #deathScreen h2 { font-size:40px; color:#ff5566; margin-bottom:10px; }
 
   #cheatMsg { position:fixed; top:80px; left:50%; transform:translateX(-50%); color:#ffd166; font-weight:900; font-size:20px; text-shadow:0 0 8px #000; z-index:40; display:none; }
+
+  #enemyHealthWrap { position:absolute; top:20px; left:50%; transform:translateX(-50%); width:260px; text-align:center; }
+  #enemyNameLabel { font-size:13px; margin-bottom:3px; text-shadow:0 0 4px #000; font-weight:700; }
+  #enemyHealthBarBg { width:100%; height:14px; background:#0006; border:2px solid #fff5; border-radius:6px; overflow:hidden; }
+  #enemyHealthBar { height:100%; width:100%; background:linear-gradient(90deg,#c0392b,#e74c3c); transition:width .15s; }
+
+  #enemyNameTag { position:fixed; transform:translate(-50%,-100%); z-index:15; pointer-events:none; display:none; text-align:center; }
+  #enemyNameTag .nm { color:#fff; font-weight:900; font-size:12px; text-shadow:0 0 5px #000,0 0 2px #000; margin-bottom:3px; white-space:nowrap; }
+  #enemyNameTag .hpBarBg { width:74px; height:9px; background:#0008; border:1px solid #fff8; border-radius:4px; overflow:hidden; margin:0 auto; }
+  #enemyNameTag .hpBarFill { height:100%; width:100%; background:linear-gradient(90deg,#c0392b,#e74c3c); transition:width .12s; }
+
+  #nicknameWrap { margin-bottom:16px; }
+  #nicknameInput { width:240px; padding:10px 14px; border-radius:8px; border:none; text-align:center; font-size:14px; }
 </style>
 </head>
 <body>
@@ -82,10 +95,15 @@
   <h1>⚔ 다리 전쟁 ⚔</h1>
   <p class="sub">3D FPS · 섬 두 개, 그 사이 다리 하나 · 코인을 모아 무기를 사라</p>
 
+  <div id="nicknameWrap">
+    <input id="nicknameInput" placeholder="닉네임 입력 (선택)" maxlength="12" />
+  </div>
+
   <div id="mainButtons">
     <button class="menuBtn" onclick="showPanel('ai')">🤖 AI와 전쟁하기</button>
-    <button class="menuBtn" onclick="showPanel('host')">🌐 방 만들기 (플레이어와 전쟁)</button>
-    <button class="menuBtn" onclick="showPanel('join')">🔑 방 참가하기</button>
+    <button class="menuBtn" onclick="startMatchmaking()">🌐 온라인 대전 (아무나와 매칭)</button>
+    <button class="menuBtn" onclick="showPanel('host')">🔑 코드로 친구 초대하기</button>
+    <button class="menuBtn" onclick="showPanel('join')">🔑 코드로 참가하기</button>
   </div>
 
   <div id="aiPanel" class="panel">
@@ -93,6 +111,11 @@
     <button class="menuBtn" onclick="startGame('ai','easy')">쉬움</button>
     <button class="menuBtn" onclick="startGame('ai','normal')">보통</button>
     <button class="menuBtn" onclick="startGame('ai','hard')">어려움</button>
+  </div>
+
+  <div id="matchPanel" class="panel">
+    <p style="color:#cde;">전 세계 아무나와 매칭 중입니다</p>
+    <div id="matchStatus" style="color:#8fd19e;font-size:13px;">대기열 확인중...</div>
   </div>
 
   <div id="hostPanel" class="panel">
@@ -122,15 +145,20 @@
     <div class="slot" data-slot="1">1 소총</div>
     <div class="slot" data-slot="2">2 권총</div>
     <div class="slot" data-slot="3">3 칼</div>
-    <div class="slot locked" data-slot="4">4 붕대</div>
+    <div class="slot" data-slot="4">4 붕대</div>
     <div class="slot locked" data-slot="5">5 샷건</div>
     <div class="slot locked" data-slot="6">6 수류탄</div>
     <div class="slot locked" data-slot="7">7 RPG</div>
   </div>
   <div id="coinDisplay">🪙 0</div>
   <div id="killFeed"></div>
-  <div id="hint">WASD 이동 · 스페이스 점프 · 좌클릭 공격 · R 재장전 · B 상점 · Enter 콘솔</div>
+  <div id="enemyHealthWrap">
+    <div id="enemyNameLabel">상대</div>
+    <div id="enemyHealthBarBg"><div id="enemyHealthBar"></div></div>
+  </div>
+  <div id="hint">WASD 이동 · 스페이스 점프 · 좌클릭 공격 · 휠 무기 변경 · R 재장전 · B 상점 · Enter 콘솔</div>
 </div>
+<div id="enemyNameTag"></div>
 
 <div id="shop">
   <h2>🛒 상점</h2>
@@ -148,39 +176,60 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script>
 /* =========================================================
    다리 전쟁 - Bridge War 3D
 ========================================================= */
 
 // ---------- 상수 ----------
-const ISLAND_R = 25;
+const ISLAND_HALF_X = 20, ISLAND_HALF_Z = 15; // 직사각형 섬 크기
 const ISLAND_A_X = -45, ISLAND_B_X = 45;
-const BRIDGE_HALF_LEN = 22, BRIDGE_HALF_WID = 3.2;
+const BRIDGE_HALF_LEN = 25, BRIDGE_HALF_WID = 3;
+const BRIDGE_SAG = 1.4; // 밧줄다리 중앙이 처지는 정도
 const GRAVITY = -26, JUMP_SPEED = 9;
 const EYE_H = 1.7;
 
-function groundHeightAt(x,z){
-  const dA = Math.hypot(x-ISLAND_A_X, z);
-  const dB = Math.hypot(x-ISLAND_B_X, z);
-  if (dA <= ISLAND_R) return 0;
-  if (dB <= ISLAND_R) return 0;
-  if (Math.abs(z) <= BRIDGE_HALF_WID && x >= -BRIDGE_HALF_LEN && x <= BRIDGE_HALF_LEN) return 0;
-  return null; // 물/공중
+function bridgeSagY(x){
+  const t = Math.min(1, Math.max(0, (x+BRIDGE_HALF_LEN)/(2*BRIDGE_HALF_LEN)));
+  return -BRIDGE_SAG*4*t*(1-t);
 }
 
-// ---------- 무기 설정 (양측 동일) ----------
+let bridgeIntact = true;
+let bridgeGroup = null;
+let obstacles = []; // {x,z,radius} - 나무/엄폐물 등 충돌 가능한 장애물
+
+function isBlockedByObstacle(x,z){
+  const PLAYER_R = 0.4;
+  for (const o of obstacles){
+    if (Math.hypot(x-o.x, z-o.z) < o.radius + PLAYER_R) return true;
+  }
+  return false;
+}
+
+function groundHeightAt(x,z){
+  const onA = Math.abs(x-ISLAND_A_X) <= ISLAND_HALF_X && Math.abs(z) <= ISLAND_HALF_Z;
+  const onB = Math.abs(x-ISLAND_B_X) <= ISLAND_HALF_X && Math.abs(z) <= ISLAND_HALF_Z;
+  if (onA || onB) return 0;
+  if (bridgeIntact && Math.abs(z) <= BRIDGE_HALF_WID && x >= -BRIDGE_HALF_LEN && x <= BRIDGE_HALF_LEN) return bridgeSagY(x);
+  return null; // 물/공중 (다리가 파괴된 구간 포함)
+}
+
+// ---------- 무기 설정 (양측 완전 동일) ----------
+// hitscan 계열은 상체(dmgUpper)/하체(dmgLower)로 데미지가 나뉨
+// 폭발 계열(grenade/rpg)은 직격(상/하체)과 근처 스플래시로 나뉨
 const WEAPONS = {
-  rifle:   { name:'소총',   type:'hitscan', dmg:20, rate:130, mag:30, reserve:90, spread:0.015, auto:true },
-  pistol:  { name:'권총',   type:'hitscan', dmg:16, rate:260, mag:12, reserve:48, spread:0.01,  auto:false },
-  knife:   { name:'칼',     type:'melee',   dmg:55, range:2.6, rate:450 },
-  bandage: { name:'붕대',   type:'heal',    heal:50, cost:20 },
-  shotgun: { name:'샷건',   type:'hitscan', dmg:9, pellets:8, rate:800, mag:6, reserve:18, spread:0.09, cost:100 },
-  grenade: { name:'수류탄', type:'grenade', dmg:100, radius:7, rate:900, cost:200, speed:22 },
-  rpg:     { name:'RPG',    type:'rocket',  dmg:150, radius:9, rate:1400, cost:500, speed:38 }
+  rifle:   { name:'소총',   type:'hitscan', dmgUpper:100, dmgLower:70, rate:130, mag:30, reserve:90, spread:0.015, auto:true, hitRadius:0.95, bulletRadius:0.06 },
+  pistol:  { name:'권총',   type:'hitscan', dmgUpper:70,  dmgLower:30, rate:260, mag:12, reserve:48, spread:0.01,  auto:false, hitRadius:0.95, bulletRadius:0.06 },
+  knife:   { name:'칼',     type:'melee',   dmg:70, range:2.6, rate:450 },
+  bandage: { name:'붕대',   type:'heal',    heal:100, cooldown:4000 },
+  shotgun: { name:'샷건',   type:'hitscan', dmgUpper:150, dmgLower:100, pellets:8, rate:800, mag:6, reserve:18, spread:0.09, cost:100, hitRadius:1.3, bulletRadius:0.07 },
+  grenade: { name:'수류탄', type:'grenade', dmgUpperContact:80, dmgLowerContact:70, dmgSplash:50, contactRadius:1.4, splashRadius:7, rate:900, cost:200, speed:22 },
+  rpg:     { name:'RPG',    type:'rocket',  dmgUpperContact:200, dmgLowerContact:150, dmgSplash:100, contactRadius:1.7, splashRadius:9, rate:1400, cost:500, speed:38 }
 };
-const SHOP_ORDER = ['bandage','shotgun','grenade','rpg'];
+const SHOP_ORDER = ['shotgun','grenade','rpg'];
+const WEAPON_CYCLE = ['rifle','pistol','knife','shotgun','grenade','rpg'];
+const MATCH_SLOTS = ['bw-open-1','bw-open-2','bw-open-3','bw-open-4','bw-open-5'];
 
 // ---------- 상태 ----------
 let mode = null; // 'ai' | 'host' | 'client'
@@ -195,28 +244,113 @@ let grounded = false;
 let pointerLocked = false;
 
 let local = {
-  x:0, y:EYE_H, z:0, hp:100, maxHp:100, coins:0, alive:true,
+  x:0, y:EYE_H, z:0, hp:100, maxHp:100, coins:0, alive:true, nickname:'플레이어',
   weapon:'rifle', ammo:{rifle:30,pistol:12,shotgun:6}, reserve:{rifle:90,pistol:48,shotgun:18},
-  owned:{rifle:true,pistol:true,knife:true,bandage:0,shotgun:false,grenade:false,rpg:false},
-  lastFire:0, lastKnife:0, reloading:false
+  owned:{rifle:true,pistol:true,knife:true,shotgun:false,grenade:false,rpg:false},
+  lastFire:0, lastKnife:0, lastBandage:0, reloading:false
 };
 let remote = {
-  x:0, y:EYE_H, z:0, hp:100, maxHp:100, alive:true, weapon:'rifle', mesh:null, targetX:0, targetY:0, targetZ:0, targetYaw:0
+  x:0, y:EYE_H, z:0, hp:100, maxHp:100, alive:true, weapon:'rifle', nickname:'상대', mesh:null, targetX:0, targetY:0, targetZ:0, targetYaw:0
 };
 let projectiles = []; // {mesh, vel, type, born, bounces}
 let coinPickups = [];
 let explosionFX = [];
 
 // ---------- 메뉴 로직 ----------
+function getNickname(){
+  const v = document.getElementById('nicknameInput').value.trim();
+  return v ? v.slice(0,12) : ('플레이어' + Math.floor(100+Math.random()*900));
+}
+
 function showPanel(which){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
   if (which==='ai') document.getElementById('aiPanel').classList.add('show');
+  if (which==='match') document.getElementById('matchPanel').classList.add('show');
   if (which==='host') { document.getElementById('hostPanel').classList.add('show'); startHost(); }
   if (which==='join') document.getElementById('joinPanel').classList.add('show');
 }
 
+// ---------- 랜덤 매칭 (아무나와 온라인 대전) ----------
+async function startMatchmaking(){
+  local.nickname = getNickname();
+  showPanel('match');
+  if (typeof Peer === 'undefined'){
+    document.getElementById('matchStatus').textContent = '멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.';
+    return;
+  }
+  document.getElementById('matchStatus').textContent = '상대를 찾는 중...';
+  for (const slotId of MATCH_SLOTS){
+    const joined = await tryJoinSlot(slotId);
+    if (joined) return;
+  }
+  tryHostSlots(0);
+}
+
+function tryJoinSlot(slotId){
+  return new Promise(resolve=>{
+    let done=false;
+    const p = new Peer();
+    const timer = setTimeout(()=>{
+      if (done) return; done=true;
+      try{ p.destroy(); }catch(e){}
+      resolve(false);
+    }, 2200);
+    p.on('open', ()=>{
+      const c = p.connect(slotId, {reliable:true});
+      c.on('open', ()=>{
+        if (done) return; done=true; clearTimeout(timer);
+        peer=p; conn=c; isHost=false; mode='client';
+        document.getElementById('matchStatus').textContent = '상대를 찾았습니다! 게임을 시작합니다...';
+        setupConn();
+        setTimeout(()=>startGame('client'), 400);
+        resolve(true);
+      });
+      c.on('error', ()=>{
+        if (done) return; done=true; clearTimeout(timer);
+        try{ p.destroy(); }catch(e){}
+        resolve(false);
+      });
+    });
+    p.on('error', ()=>{
+      if (done) return; done=true; clearTimeout(timer);
+      try{ p.destroy(); }catch(e){}
+      resolve(false);
+    });
+  });
+}
+
+function tryHostSlots(i){
+  if (i >= MATCH_SLOTS.length){
+    document.getElementById('matchStatus').textContent = '지금은 매칭 자리가 가득 찼습니다. 잠시 후 다시 시도해주세요.';
+    return;
+  }
+  const slotId = MATCH_SLOTS[i];
+  document.getElementById('matchStatus').textContent = '상대를 기다리는 중... (자동으로 시작됩니다)';
+  const p = new Peer(slotId);
+  let started=false;
+  p.on('open', ()=>{ peer=p; isHost=true; mode='host'; });
+  p.on('connection', c=>{
+    if (started) return; started=true;
+    conn=c;
+    document.getElementById('matchStatus').textContent = '상대가 입장했습니다! 게임을 시작합니다...';
+    setupConn();
+    setTimeout(()=>startGame('host'), 400);
+  });
+  p.on('error', ()=>{
+    if (started) return;
+    try{ p.destroy(); }catch(e){}
+    tryHostSlots(i+1);
+  });
+}
+
 function startHost(){
+  local.nickname = getNickname();
   isHost = true; mode='host';
+  if (typeof Peer === 'undefined'){
+    document.getElementById('hostCodeBox').textContent = '오류';
+    document.getElementById('connStatus').textContent = '멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.';
+    return;
+  }
   const code = 'bw-' + Math.random().toString(36).slice(2,8);
   peer = new Peer(code);
   peer.on('open', id=>{
@@ -232,6 +366,11 @@ function startHost(){
 }
 
 function joinRoom(){
+  local.nickname = getNickname();
+  if (typeof Peer === 'undefined'){
+    document.getElementById('connStatus2').textContent = '멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.';
+    return;
+  }
   const code = 'bw-' + document.getElementById('joinCodeInput').value.trim();
   document.getElementById('connStatus2').textContent = '연결 시도중...';
   isHost = false; mode='client';
@@ -252,6 +391,8 @@ function setupConn(){
     if (data.t==='state'){
       remote.targetX=data.x; remote.targetY=data.y; remote.targetZ=data.z; remote.targetYaw=data.yaw;
       remote.weapon = data.weapon;
+      if (typeof data.hp==='number') remote.hp = data.hp;
+      if (data.nickname) remote.nickname = data.nickname;
     } else if (data.t==='hit'){
       applyDamageLocal(data.dmg, data.by||'상대');
     } else if (data.t==='fx'){
@@ -260,6 +401,8 @@ function setupConn(){
       // just for kill feed flavor, ignored otherwise
     } else if (data.t==='dead'){
       addKillFeed(`상대가 쓰러졌습니다`);
+    } else if (data.t==='bridge'){
+      if (data.action==='destroy') destroyBridge(false);
     }
   });
 }
@@ -268,7 +411,12 @@ function send(obj){ if (conn && conn.open) conn.send(obj); }
 
 // ---------- 게임 시작 ----------
 function startGame(m, diff){
+  if (typeof THREE === 'undefined'){
+    alert('3D 라이브러리(Three.js)를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.');
+    return;
+  }
   mode = m; if (diff) difficulty = diff;
+  if (!conn) local.nickname = getNickname();
   document.getElementById('menu').style.display='none';
   document.getElementById('hud').style.display='block';
   initThree();
@@ -280,6 +428,29 @@ function startGame(m, diff){
   updateWeaponUI();
   buildShop();
   animate();
+}
+
+// ---------- 다리 파괴/복구 ----------
+function destroyBridge(broadcast){
+  if (!bridgeIntact) return;
+  bridgeIntact = false;
+  if (bridgeGroup){ scene.remove(bridgeGroup); bridgeGroup = null; }
+  addKillFeed('💥 다리가 파괴되었습니다! 30초 후 복구됩니다');
+  if (broadcast !== false) send({t:'bridge', action:'destroy'});
+  setTimeout(rebuildBridge, 30000);
+}
+
+function rebuildBridge(){
+  if (bridgeIntact) return;
+  buildBridge();
+  addKillFeed('🌉 다리가 복구되었습니다!');
+}
+
+function checkBridgeDestruction(pos){
+  if (!bridgeIntact) return;
+  if (Math.abs(pos.z) <= BRIDGE_HALF_WID+2 && pos.x >= -BRIDGE_HALF_LEN-2 && pos.x <= BRIDGE_HALF_LEN+2){
+    destroyBridge(true);
+  }
 }
 
 function requestPointerLock(){
@@ -318,8 +489,9 @@ function initThree(){
   water.rotation.x = -Math.PI/2; water.position.y=-3.4;
   scene.add(water);
 
-  buildIsland(ISLAND_A_X, 0xff6b6b); // A: 붉은팀 색 포인트
-  buildIsland(ISLAND_B_X, 0x4d96ff); // B: 파란팀 색 포인트
+  obstacles = [];
+  buildIsland(ISLAND_A_X, 0xff6b6b);
+  buildIsland(ISLAND_B_X, 0x4d96ff);
   buildBridge();
 
   window.addEventListener('resize', ()=>{
@@ -331,69 +503,113 @@ function initThree(){
 }
 
 function buildIsland(cx, accent){
-  const topMat = new THREE.MeshStandardMaterial({color:0x4a8f3c, roughness:0.95});
-  const sideMat = new THREE.MeshStandardMaterial({color:0x8a6a45, roughness:1});
-  const geo = new THREE.CylinderGeometry(ISLAND_R, ISLAND_R+3, 4, 40);
-  const island = new THREE.Mesh(geo, [sideMat, topMat, topMat]);
-  island.position.set(cx, -2, 0);
-  island.receiveShadow = true;
-  scene.add(island);
+  const w = ISLAND_HALF_X*2, d = ISLAND_HALF_Z*2;
+  const stoneH = 4, dirtH = 1.8, grassH = 0.6;
 
-  // 색 포인트 링 (팀 구분용, 시각적)
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(ISLAND_R*0.35, 0.4, 8, 40),
-    new THREE.MeshStandardMaterial({color:accent, emissive:accent, emissiveIntensity:0.4})
-  );
-  ring.rotation.x = Math.PI/2;
-  ring.position.set(cx, 0.05, 0);
-  scene.add(ring);
+  // 맨 밑: 돌
+  const stone = new THREE.Mesh(new THREE.BoxGeometry(w, stoneH, d), new THREE.MeshStandardMaterial({color:0x757575, roughness:1}));
+  stone.position.set(cx, -grassH-dirtH-stoneH/2, 0);
+  stone.receiveShadow=true; stone.castShadow=true;
+  scene.add(stone);
 
-  // 나무 몇 그루 (장식)
-  for(let i=0;i<8;i++){
-    const ang = Math.random()*Math.PI*2;
-    const r = 6 + Math.random()*(ISLAND_R-10);
-    const tx = cx + Math.cos(ang)*r, tz = Math.sin(ang)*r;
-    if (Math.hypot(tx-cx,tz) < 8) continue;
+  // 그 다음: 흙
+  const dirt = new THREE.Mesh(new THREE.BoxGeometry(w, dirtH, d), new THREE.MeshStandardMaterial({color:0x6b4423, roughness:1}));
+  dirt.position.set(cx, -grassH-dirtH/2, 0);
+  dirt.receiveShadow=true; dirt.castShadow=true;
+  scene.add(dirt);
+
+  // 맨 위: 잔디 (걸어다니는 표면, y=0)
+  const grass = new THREE.Mesh(new THREE.BoxGeometry(w, grassH, d), new THREE.MeshStandardMaterial({color:0x4a8f3c, roughness:0.95}));
+  grass.position.set(cx, -grassH/2, 0);
+  grass.receiveShadow=true; grass.castShadow=true;
+  scene.add(grass);
+
+  // 팀 깃발 (시각적 구분)
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,3,8), new THREE.MeshStandardMaterial({color:0x333333}));
+  pole.position.set(cx, 1.5, -ISLAND_HALF_Z+3);
+  scene.add(pole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.4,0.9), new THREE.MeshStandardMaterial({color:accent, side:THREE.DoubleSide}));
+  flag.position.set(cx+0.7, 2.6, -ISLAND_HALF_Z+3);
+  scene.add(flag);
+
+  // 나무 몇 그루 (장식 + 충돌 장애물)
+  for(let i=0;i<7;i++){
+    const tx = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
+    const tz = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
+    if (Math.hypot(tx-cx,tz) < 7) continue;
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.4,2.4,6), new THREE.MeshStandardMaterial({color:0x6b4423}));
     trunk.position.set(tx, 1.2, tz); trunk.castShadow=true;
     const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6,3,8), new THREE.MeshStandardMaterial({color:0x2f7d32}));
     leaves.position.set(tx, 3.4, tz); leaves.castShadow=true;
     scene.add(trunk); scene.add(leaves);
+    obstacles.push({x:tx, z:tz, radius:0.55});
   }
 
-  // 엄폐물 박스
+  // 엄폐물 박스 (충돌 장애물)
   for(let i=0;i<5;i++){
-    const ang = Math.random()*Math.PI*2;
-    const r = 4 + Math.random()*(ISLAND_R-10);
-    const bx = cx + Math.cos(ang)*r, bz = Math.sin(ang)*r;
+    const bx = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
+    const bz = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
+    if (Math.hypot(bx-cx,bz) < 5) continue;
     const box = new THREE.Mesh(new THREE.BoxGeometry(2.2,1.4,2.2), new THREE.MeshStandardMaterial({color:0x999999}));
     box.position.set(bx, 0.7, bz); box.castShadow=true; box.receiveShadow=true;
     scene.add(box);
+    obstacles.push({x:bx, z:bz, radius:1.55});
   }
 }
 
 function buildBridge(){
+  const group = new THREE.Group();
   const plankMat = new THREE.MeshStandardMaterial({color:0x8b5a2b, roughness:0.9});
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(BRIDGE_HALF_LEN*2+6, 1, BRIDGE_HALF_WID*2), plankMat);
-  deck.position.set(0,0,0); deck.receiveShadow=true; deck.castShadow=true;
-  scene.add(deck);
-  // 난간
-  const railMat = new THREE.MeshStandardMaterial({color:0x5a3a1a});
+  const ropeMat = new THREE.MeshStandardMaterial({color:0x4a3520, roughness:1});
+
+  const plankCount = 30;
+  const plankWidth = (2*BRIDGE_HALF_LEN) / plankCount;
+  const planks = [];
+  for (let i=0;i<plankCount;i++){
+    const x = -BRIDGE_HALF_LEN + plankWidth*(i+0.5);
+    const y = bridgeSagY(x);
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth*0.82, 0.22, BRIDGE_HALF_WID*2), plankMat);
+    plank.position.set(x, y, 0);
+    plank.rotation.z = -(bridgeSagY(x+0.5)-bridgeSagY(x-0.5))*0.15;
+    plank.castShadow=true; plank.receiveShadow=true;
+    group.add(plank);
+    planks.push({x,y});
+  }
+
+  // 양옆 손잡이 로프 + 세로 로프
   for (const zs of [-1,1]){
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(BRIDGE_HALF_LEN*2+6, 0.9, 0.2), railMat);
-    rail.position.set(0, 0.9, zs*BRIDGE_HALF_WID);
-    scene.add(rail);
-    for(let x=-BRIDGE_HALF_LEN; x<=BRIDGE_HALF_LEN; x+=6){
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.25,1.2,0.25), railMat);
-      post.position.set(x, 0.6, zs*BRIDGE_HALF_WID);
-      scene.add(post);
+    const pts=[];
+    for (let i=0;i<=40;i++){
+      const t=i/40;
+      const x = -BRIDGE_HALF_LEN + t*2*BRIDGE_HALF_LEN;
+      pts.push(new THREE.Vector3(x, bridgeSagY(x)+1.0, zs*BRIDGE_HALF_WID));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 60, 0.09, 6, false), ropeMat);
+    group.add(tube);
+
+    for (let i=1;i<planks.length-1;i+=3){
+      const p = planks[i];
+      const topY = bridgeSagY(p.x)+1.0;
+      const h = topY - p.y;
+      const vRope = new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,h,6), ropeMat);
+      vRope.position.set(p.x, (p.y+topY)/2, zs*BRIDGE_HALF_WID);
+      group.add(vRope);
     }
   }
-  // 기둥
-  for (const x of [-14,0,14]){
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.4,7,10), new THREE.MeshStandardMaterial({color:0x555555}));
-    pillar.position.set(x,-4,0); scene.add(pillar);
+
+  // 양 끝단 지지 기둥 (섬에 고정)
+  for (const ex of [-BRIDGE_HALF_LEN, BRIDGE_HALF_LEN]){
+    for (const zs of [-1,1]){
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.3,2.4,8), new THREE.MeshStandardMaterial({color:0x5a3a1a}));
+      post.position.set(ex, bridgeSagY(ex)+1.0, zs*BRIDGE_HALF_WID);
+      group.add(post);
+    }
   }
+
+  scene.add(group);
+  bridgeGroup = group;
+  bridgeIntact = true;
 }
 
 // ---------- 플레이어 스폰 ----------
@@ -406,7 +622,7 @@ function spawnLocal(){
 
 function spawnRemoteMesh(){
   const grp = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.5,1.2,4,8) : new THREE.CylinderGeometry(0.5,0.5,1.8,8),
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,1.8,10),
     new THREE.MeshStandardMaterial({color:0xff5555}));
   body.position.y = 1; body.castShadow=true;
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.35,10,10), new THREE.MeshStandardMaterial({color:0xffdbac}));
@@ -431,9 +647,9 @@ function spawnCoinPickups(){
   const spots = [];
   for (const cx of [ISLAND_A_X, ISLAND_B_X]){
     for(let i=0;i<4;i++){
-      const ang = (i/4)*Math.PI*2 + Math.random();
-      const r = 8+Math.random()*12;
-      spots.push({x:cx+Math.cos(ang)*r, z:Math.sin(ang)*r});
+      const x = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
+      const z = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
+      spots.push({x, z});
     }
   }
   for (const s of spots){
@@ -494,6 +710,15 @@ document.addEventListener('pointerlockchange', ()=>{
   pointerLocked = document.pointerLockElement === renderer.domElement;
 });
 
+document.addEventListener('wheel', e=>{
+  if (!pointerLocked || !local.alive) return;
+  const order = WEAPON_CYCLE.filter(k => k==='rifle' || k==='pistol' || k==='knife' || local.owned[k]);
+  let idx = order.indexOf(local.weapon);
+  if (idx === -1) idx = 0;
+  idx = (idx + (e.deltaY > 0 ? 1 : -1) + order.length) % order.length;
+  switchWeapon(order[idx]);
+});
+
 let fireHeld=false, fireStart=false;
 
 function switchWeapon(name){
@@ -505,12 +730,17 @@ function switchWeapon(name){
 }
 
 function useBandage(){
-  if (local.owned.bandage>0 && local.hp<local.maxHp){
-    local.owned.bandage--;
-    local.hp = Math.min(local.maxHp, local.hp+WEAPONS.bandage.heal);
-    updateHUD(); updateWeaponUI();
-    addKillFeed('붕대 사용 (+50 HP)');
+  if (!local.alive) return;
+  const now = performance.now();
+  if (local.hp >= local.maxHp){ addKillFeed('체력이 이미 가득 찼습니다'); return; }
+  if (now - local.lastBandage < WEAPONS.bandage.cooldown){
+    addKillFeed('붕대 재사용 대기중...');
+    return;
   }
+  local.lastBandage = now;
+  local.hp = Math.min(local.maxHp, local.hp + WEAPONS.bandage.heal);
+  updateHUD();
+  addKillFeed(`붕대 사용 (+${WEAPONS.bandage.heal} HP)`);
 }
 
 // ---------- 콘솔 / 치트 ----------
@@ -518,9 +748,9 @@ function submitConsole(){
   const input = document.getElementById('consoleInput');
   const val = input.value.trim();
   input.value=''; document.getElementById('console').classList.remove('show');
-  if (val === 'I love .RPG!'){
+  if (val === 'I love RPG!'){
     local.coins += 9999;
-    local.owned.shotgun = true; local.owned.grenade = true; local.owned.rpg = true; local.owned.bandage += 5;
+    local.owned.shotgun = true; local.owned.grenade = true; local.owned.rpg = true;
     local.ammo.shotgun = WEAPONS.shotgun.mag; local.reserve.shotgun = WEAPONS.shotgun.reserve;
     showCheatMsg();
     updateWeaponUI(); updateHUD(); buildShop();
@@ -549,39 +779,29 @@ function buildShop(){
   list.innerHTML='';
   for (const key of SHOP_ORDER){
     const w = WEAPONS[key];
-    const owned = key==='bandage' ? false : local.owned[key];
+    const owned = local.owned[key];
     const div = document.createElement('div');
     div.className='shopItem';
-    const desc = key==='bandage' ? '체력 +50 회복 (소모품)' :
-                 key==='shotgun' ? '근거리 산탄, 8발 산탄' :
-                 key==='grenade' ? '투척, 폭발 스플래시 데미지' :
-                 '직격/스플래시 대미지, 강력함';
+    const desc = key==='shotgun' ? '근거리 산탄, 상체 150 / 하체 100 데미지' :
+                 key==='grenade' ? '투척, 직격 상체80·하체70 / 스플래시 50' :
+                 '직격 상체200·하체150 / 스플래시 100';
     div.innerHTML = `<div class="info"><b>${w.name} (${w.cost} 코인)</b><span>${desc}</span></div>`;
     const btn = document.createElement('button');
     btn.className='buyBtn';
-    if (key==='bandage'){
-      btn.textContent = `구매 (보유:${local.owned.bandage})`;
-      btn.disabled = local.coins < w.cost;
-      btn.onclick = ()=>buyItem(key);
-    } else {
-      btn.textContent = owned ? '보유중' : '구매';
-      if (owned) btn.classList.add('owned');
-      btn.disabled = owned || local.coins < w.cost;
-      btn.onclick = ()=>buyItem(key);
-    }
+    btn.textContent = owned ? '보유중' : '구매';
+    if (owned) btn.classList.add('owned');
+    btn.disabled = owned || local.coins < w.cost;
+    btn.onclick = ()=>buyItem(key);
     div.appendChild(btn);
     list.appendChild(div);
   }
 }
 function buyItem(key){
   const w = WEAPONS[key];
-  if (local.coins < w.cost) return;
+  if (local.coins < w.cost || local.owned[key]) return;
   local.coins -= w.cost;
-  if (key==='bandage') local.owned.bandage++;
-  else {
-    local.owned[key]=true;
-    if (key==='shotgun'){ local.ammo.shotgun=w.mag; local.reserve.shotgun=w.reserve; }
-  }
+  local.owned[key]=true;
+  if (key==='shotgun'){ local.ammo.shotgun=w.mag; local.reserve.shotgun=w.reserve; }
   buildShop(); updateWeaponUI(); updateHUD();
 }
 
@@ -620,7 +840,10 @@ function getAimDir(){
 function doMelee(w){
   const dir = getAimDir();
   const origin = camera.position.clone();
-  const targetPos = mode==='ai' ? new THREE.Vector3(remote.x, 1.2, remote.z) : new THREE.Vector3(remote.mesh.position.x,1.2,remote.mesh.position.z);
+  const tbx = mode==='ai' ? remote.x : remote.mesh.position.x;
+  const tbz = mode==='ai' ? remote.z : remote.mesh.position.z;
+  const tGroundY = groundHeightAt(tbx, tbz) || 0;
+  const targetPos = new THREE.Vector3(tbx, tGroundY+1.2, tbz);
   const toTarget = targetPos.clone().sub(origin);
   const dist = toTarget.length();
   if (dist <= w.range){
@@ -632,39 +855,59 @@ function doMelee(w){
   send({t:'fx', kind:'knife', x:origin.x,y:origin.y,z:origin.z});
 }
 
+// 명중 지점의 y좌표를 대상이 서있는 바닥 높이 기준 상대값으로 환산해 상체/하체 판정
+function bodyPartFromY(hitY, baseY){
+  return (hitY - (baseY||0)) > 1.15 ? 'upper' : 'lower';
+}
+
 function doHitscan(w){
   const pellets = w.pellets || 1;
   const origin = camera.position.clone();
-  let anyHit=false;
+  const hitRadius = w.hitRadius || 0.95;
+  const targetBaseX = mode==='ai' ? remote.x : remote.mesh.position.x;
+  const targetBaseZ = mode==='ai' ? remote.z : remote.mesh.position.z;
+  const targetGroundY = groundHeightAt(targetBaseX, targetBaseZ) || 0;
+  const targetPos = new THREE.Vector3(targetBaseX, targetGroundY+1.1, targetBaseZ);
+  let hit=false, hitPart='lower';
   for (let i=0;i<pellets;i++){
     const dir = getAimDir();
     dir.x += (Math.random()-0.5)*w.spread;
     dir.y += (Math.random()-0.5)*w.spread;
     dir.z += (Math.random()-0.5)*w.spread;
     dir.normalize();
-    const raycaster = new THREE.Raycaster(origin, dir, 0, 200);
-    const targetPos = mode==='ai' ? new THREE.Vector3(remote.x, 1.1, remote.z) : new THREE.Vector3(remote.mesh.position.x,1.1,remote.mesh.position.z);
-    // 점-선 거리로 근사 판정 (구체 반지름 0.9)
     const toTarget = targetPos.clone().sub(origin);
     const proj = toTarget.dot(dir);
     if (proj>0 && proj<200){
       const closest = origin.clone().add(dir.clone().multiplyScalar(proj));
       const d = closest.distanceTo(targetPos);
-      if (d < 0.95){ anyHit=true; hitOpponent(w.dmg, w.name); }
+      if (d < hitRadius){
+        hit = true;
+        hitPart = bodyPartFromY(closest.y, targetGroundY);
+        break; // 한 발당 한 번만 판정 (샷건도 명중 여부만, 데미지는 부위별 고정값)
+      }
     }
   }
-  spawnTracer(origin, getAimDir());
+  if (hit){
+    const dmg = hitPart==='upper' ? w.dmgUpper : w.dmgLower;
+    hitOpponent(dmg, w.name);
+  }
+  spawnTracer(origin, getAimDir(), w.bulletRadius || 0.05);
   send({t:'fx', kind:'shot', x:origin.x,y:origin.y,z:origin.z, yaw, pitch});
 }
 
-function spawnTracer(origin, dir){
-  const end = origin.clone().add(dir.clone().multiplyScalar(60));
-  const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
-  const mat = new THREE.LineBasicMaterial({color:0xfff2a0, transparent:true, opacity:0.8});
-  const line = new THREE.Line(geo, mat);
-  scene.add(line);
+function spawnTracer(origin, dir, radius){
+  radius = radius || 0.05;
+  const length = 60;
+  const end = origin.clone().add(dir.clone().multiplyScalar(length));
+  const mid = origin.clone().add(end).multiplyScalar(0.5);
+  const geo = new THREE.CylinderGeometry(radius, radius, length, 6, 1, true);
+  const mat = new THREE.MeshBasicMaterial({color:0xfff2a0, transparent:true, opacity:0.85});
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(mid);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+  scene.add(mesh);
   let t=0;
-  const fade = ()=>{ t+=1; mat.opacity -= 0.15; if (mat.opacity<=0){ scene.remove(line); return;} requestAnimationFrame(fade); };
+  const fade = ()=>{ t+=1; mat.opacity -= 0.15; if (mat.opacity<=0){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); return;} requestAnimationFrame(fade); };
   fade();
 }
 
@@ -699,10 +942,13 @@ function updateProjectiles(dt){
       else if (gh!==null && p.mesh.position.y <= gh+0.3) explode=true;
       if (age > 3000) explode=true;
     }
-    // 상대 근접 판정
+    // 상대 근접 판정 - 정확히 맞지 않아도 스플래시 범위 안에 들어오면 그 자리에서 폭발
     if (!explode && p.owner==='local'){
-      const targetPos = mode==='ai' ? new THREE.Vector3(remote.x,1,remote.z) : new THREE.Vector3(remote.mesh.position.x,1,remote.mesh.position.z);
-      if (p.mesh.position.distanceTo(targetPos) < 1.2) explode=true;
+      const tbx = mode==='ai' ? remote.x : remote.mesh.position.x;
+      const tbz = mode==='ai' ? remote.z : remote.mesh.position.z;
+      const tgY = groundHeightAt(tbx,tbz) || 0;
+      const targetPos = new THREE.Vector3(tbx, tgY+1.1, tbz);
+      if (p.mesh.position.distanceTo(targetPos) < WEAPONS[p.type].splashRadius) explode=true;
     }
 
     if (explode){
@@ -718,12 +964,37 @@ function updateProjectiles(dt){
 function handleExplosion(pos, w){
   spawnExplosionFX(pos);
   send({t:'fx', kind:'explosion', x:pos.x, y:pos.y, z:pos.z});
-  const targetPos = mode==='ai' ? new THREE.Vector3(remote.x,1,remote.z) : new THREE.Vector3(remote.mesh.position.x,1,remote.mesh.position.z);
+  checkBridgeDestruction(pos);
+  const targetBaseX = mode==='ai' ? remote.x : remote.mesh.position.x;
+  const targetBaseZ = mode==='ai' ? remote.z : remote.mesh.position.z;
+  const targetGroundY = groundHeightAt(targetBaseX, targetBaseZ) || 0;
+  const targetPos = new THREE.Vector3(targetBaseX, targetGroundY+1.1, targetBaseZ);
   const d = pos.distanceTo(targetPos);
-  let dmg=0;
-  if (d < w.radius) dmg = w.dmg * (1 - d/w.radius*0.7);
-  else if (d < w.radius*1.6) dmg = 10; // 빗맞아도 살짝 데미지
-  if (dmg>0) hitOpponent(Math.round(dmg), w.name===undefined?'폭발':w.name);
+  let dmg = 0;
+  if (d < w.contactRadius){
+    const part = bodyPartFromY(pos.y, targetGroundY);
+    dmg = part==='upper' ? w.dmgUpperContact : w.dmgLowerContact;
+  } else if (d < w.splashRadius){
+    dmg = w.dmgSplash; // 빗맞아도 근처면 스플래시 데미지
+  }
+  if (dmg>0) hitOpponent(Math.round(dmg), w.name);
+}
+
+// 봇(AI)이 던진 폭발물이 '나'에게 주는 데미지 계산
+function botExplosionDamage(pos, w){
+  spawnExplosionFX(pos);
+  checkBridgeDestruction(pos);
+  const groundY = groundHeightAt(local.x, local.z) || 0;
+  const targetPos = new THREE.Vector3(local.x, groundY+1.1, local.z);
+  const d = pos.distanceTo(targetPos);
+  let dmg = 0;
+  if (d < w.contactRadius){
+    const part = bodyPartFromY(pos.y, groundY);
+    dmg = part==='upper' ? w.dmgUpperContact : w.dmgLowerContact;
+  } else if (d < w.splashRadius){
+    dmg = w.dmgSplash;
+  }
+  if (dmg>0) applyDamageLocal(Math.round(dmg), '적 ' + w.name);
 }
 
 function spawnExplosionFX(pos){
@@ -846,7 +1117,6 @@ function updateWeaponUI(){
   document.querySelector('.slot[data-slot="5"]').classList.toggle('locked', !local.owned.shotgun);
   document.querySelector('.slot[data-slot="6"]').classList.toggle('locked', !local.owned.grenade);
   document.querySelector('.slot[data-slot="7"]').classList.toggle('locked', !local.owned.rpg);
-  document.querySelector('.slot[data-slot="4"]').classList.toggle('locked', local.owned.bandage<=0);
   updateHUD();
 }
 
@@ -862,35 +1132,32 @@ function updateMovement(dt){
   if (keys['KeyD']) move.add(right);
   if (move.lengthSq()>0) move.normalize().multiplyScalar(6.5*dt);
 
-  let nx = local.x+move.x, nz = local.z+move.z;
-  const gh = groundHeightAt(nx,nz);
-  if (gh!==null){ local.x=nx; local.z=nz; }
-  else {
-    // 슬라이딩 시도: x, z 축 각각
-    const gx = groundHeightAt(local.x+move.x, local.z);
-    const gz = groundHeightAt(local.x, local.z+move.z);
-    if (gx!==null) local.x += move.x;
-    if (gz!==null) local.z += move.z;
-  }
+  // 장애물(나무/엄폐물)만 축별로 막고, 섬 밖/물 쪽은 자유롭게 걸어나갈 수 있음 (빠지면 사망)
+  const tryX = local.x + move.x, tryZ = local.z + move.z;
+  if (!isBlockedByObstacle(tryX, local.z)) local.x = tryX;
+  if (!isBlockedByObstacle(local.x, tryZ)) local.z = tryZ;
 
   const groundY = groundHeightAt(local.x, local.z);
   if (groundY===null){
-    // 공중/낙하 (다리나 섬 밖 -> 낙하)
+    // 공중/낙하 (다리나 섬 밖, 혹은 다리가 파괴된 구간 -> 물로 낙하)
     velocity.y += GRAVITY*dt;
     local.y += velocity.y*dt;
     grounded = false;
-    if (local.y < -6){
-      applyDamageLocal(999,'낙사'); // 물에 빠지면 사망
+    if (local.y < -3.2){
+      applyDamageLocal(999,'익사'); // 물에 빠지면 사망
     }
   } else {
     const targetY = groundY+EYE_H;
-    if (local.y > targetY){
-      velocity.y += GRAVITY*dt;
-      local.y += velocity.y*dt;
-      if (local.y <= targetY){ local.y=targetY; velocity.y=0; grounded=true; }
+    velocity.y += GRAVITY*dt;
+    local.y += velocity.y*dt;
+    if (local.y <= targetY){
+      local.y = targetY; velocity.y = 0; grounded = true;
     } else {
-      local.y = targetY; velocity.y=0; grounded=true;
-      if (keys['Space']) { velocity.y = JUMP_SPEED; grounded=false; }
+      grounded = false;
+    }
+    if (grounded && keys['Space']){
+      velocity.y = JUMP_SPEED;
+      grounded = false;
     }
   }
 
@@ -937,7 +1204,8 @@ function updateBot(dt){
   const nz = bot.z + (dz/dlen)*bot.speed*dt;
   if (groundHeightAt(nx,nz)!==null){ bot.x=nx; bot.z=nz; }
 
-  remote.mesh.position.set(bot.x, 0, bot.z);
+  const botGroundY = groundHeightAt(bot.x, bot.z) || 0;
+  remote.mesh.position.set(bot.x, botGroundY, bot.z);
   const faceAngle = Math.atan2(px-bot.x, pz-bot.z);
   remote.mesh.rotation.y = faceAngle;
 
@@ -950,8 +1218,37 @@ function updateBot(dt){
   }
   if (dist < 20 && now - bot.lastGrenade > 8000 && Math.random()<0.5){
     bot.lastGrenade = now;
-    handleExplosion(new THREE.Vector3(px + (Math.random()-0.5)*3, 1, pz+(Math.random()-0.5)*3), WEAPONS.grenade);
+    botExplosionDamage(new THREE.Vector3(px + (Math.random()-0.5)*3, 1.1, pz+(Math.random()-0.5)*3), WEAPONS.grenade);
   }
+}
+
+// ---------- 적 체력바 / 닉네임 태그 ----------
+function updateEnemyHUD(){
+  const hp = mode==='ai' ? (bot ? bot.hp : 0) : remote.hp;
+  const pct = Math.max(0, hp/(remote.maxHp||100)*100);
+  const bar = document.getElementById('enemyHealthBar');
+  if (bar) bar.style.width = pct+'%';
+  const label = document.getElementById('enemyNameLabel');
+  if (label){
+    const name = mode==='ai' ? 'AI' : (remote.nickname||'상대');
+    label.textContent = `${name} - ${Math.max(0,Math.round(hp))} HP`;
+  }
+}
+
+function updateNameTag(){
+  const tag = document.getElementById('enemyNameTag');
+  if (!tag || !remote.mesh) return;
+  const headPos = remote.mesh.position.clone();
+  headPos.y += 2.4;
+  const proj = headPos.clone().project(camera);
+  if (proj.z > 1 || proj.z < -1){ tag.style.display='none'; return; }
+  tag.style.display='block';
+  tag.style.left = ((proj.x*0.5+0.5)*innerWidth) + 'px';
+  tag.style.top = ((-proj.y*0.5+0.5)*innerHeight) + 'px';
+  const name = mode==='ai' ? 'AI' : (remote.nickname||'상대');
+  const hp = mode==='ai' ? (bot ? bot.hp : 0) : remote.hp;
+  const pct = Math.max(0, Math.min(100, hp/(remote.maxHp||100)*100));
+  tag.innerHTML = `<div class="nm">${name} (${Math.max(0,Math.round(hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
 }
 
 // ---------- 원격 플레이어(멀티) 보간 ----------
@@ -959,6 +1256,8 @@ function updateRemoteInterp(dt){
   if (mode==='ai' || !remote.mesh) return;
   remote.mesh.position.x += (remote.targetX-remote.mesh.position.x)*Math.min(1,dt*10);
   remote.mesh.position.z += (remote.targetZ-remote.mesh.position.z)*Math.min(1,dt*10);
+  const groundY = groundHeightAt(remote.mesh.position.x, remote.mesh.position.z);
+  remote.mesh.position.y = groundY===null ? remote.mesh.position.y : groundY;
   remote.mesh.rotation.y = remote.targetYaw||0;
 }
 
@@ -968,7 +1267,7 @@ function sendState(){
   const now=performance.now();
   if (now-lastSend<50) return;
   lastSend=now;
-  send({t:'state', x:local.x,y:local.y,z:local.z, yaw, weapon:local.weapon});
+  send({t:'state', x:local.x,y:local.y,z:local.z, yaw, weapon:local.weapon, hp:local.hp, nickname:local.nickname});
 }
 
 // ---------- 메인 루프 ----------
@@ -985,6 +1284,8 @@ function animate(){
   updateProjectiles(dt);
   updateCoins(dt);
   if (mode==='ai') updateBot(dt); else { updateRemoteInterp(dt); sendState(); }
+  updateEnemyHUD();
+  updateNameTag();
 
   renderer.render(scene, camera);
 }
