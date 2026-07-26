@@ -49,11 +49,15 @@
   #killFeed { position:absolute; top:20px; left:24px; font-size:14px; color:#fff; text-shadow:0 0 4px #000; display:flex; flex-direction:column; gap:4px; }
   #hint { position:absolute; bottom:60px; left:50%; transform:translateX(-50%); font-size:13px; color:#cde; text-shadow:0 0 4px #000; text-align:center; }
   #weaponSlots { position:absolute; bottom:56px; right:24px; display:flex; gap:6px; }
-  .slot { width:34px; height:34px; background:#0007; border:1px solid #fff5; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#8899aa; }
-  .slot.active { border-color:#ffd166; color:#ffd166; }
+  .slot { position:relative; width:40px; height:40px; background:#0007; border:1px solid #fff5; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#8899aa; }
+  .slot.active { border-color:#ffd166; }
+  .slot.active svg { filter:drop-shadow(0 0 3px #ffd166); }
   .slot.locked { opacity:.3; }
+  .slot svg { width:26px; height:26px; }
+  .slot .num { position:absolute; top:1px; left:3px; font-size:9px; font-weight:900; color:#cde; text-shadow:0 0 3px #000; }
+  .slot.active .num { color:#ffd166; }
 
-  #shop { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#0e1b28ee; border:2px solid #2a4d6e; border-radius:14px; padding:24px; z-index:30; display:none; color:#fff; width:420px; pointer-events:auto; }
+  #shop { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#0e1b28ee; border:2px solid #2a4d6e; border-radius:14px; padding:24px; z-index:60; display:none; color:#fff; width:420px; pointer-events:auto; max-height:85vh; overflow-y:auto; }
   #shop.show { display:block; }
   #shop h2 { text-align:center; margin-bottom:6px; }
   #shopCoins { text-align:center; color:#ffd166; font-weight:900; margin-bottom:16px; }
@@ -85,11 +89,14 @@
   #enemyNameTag .hpBarBg { width:74px; height:9px; background:#0008; border:1px solid #fff8; border-radius:4px; overflow:hidden; margin:0 auto; }
   #enemyNameTag .hpBarFill { height:100%; width:100%; background:linear-gradient(90deg,#c0392b,#e74c3c); transition:width .12s; }
 
+  #homeCoinDisplay { color:#ffd166; font-weight:900; font-size:16px; margin-bottom:18px; background:#0006; padding:8px 18px; border-radius:20px; display:inline-block; }
   #nicknameWrap { margin-bottom:16px; }
   #nicknameInput { width:240px; padding:10px 14px; border-radius:8px; border:none; text-align:center; font-size:14px; }
 
   #exitBtn { position:absolute; top:16px; left:16px; pointer-events:auto; background:#0009; color:#fff; border:1px solid #fff5; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; }
   #exitBtn:hover { background:#ef476f; }
+
+  .ammoLabel { position:fixed; transform:translate(-50%,-100%); z-index:15; pointer-events:none; display:none; background:#0009; color:#ffe08a; font-weight:900; font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid #ffd16688; white-space:nowrap; }
 
   .bandageSlot { cursor:pointer; pointer-events:auto; padding:2px; }
   .bandageIcon { width:100%; height:100%; background:#fff; border-radius:4px; position:relative; }
@@ -101,6 +108,7 @@
 <div id="menu">
   <h1>⚔ 다리 전쟁 ⚔</h1>
   <p class="sub">3D FPS · 섬 두 개, 그 사이 다리 하나 · 코인을 모아 무기를 사라</p>
+  <div id="homeCoinDisplay">🪙 보유 코인: 0</div>
 
   <div id="nicknameWrap">
     <input id="nicknameInput" placeholder="닉네임 입력 (선택)" maxlength="12" />
@@ -151,13 +159,13 @@
     <div id="ammoText">30 / 90</div>
   </div>
   <div id="weaponSlots">
-    <div class="slot" data-slot="1">1 소총</div>
-    <div class="slot" data-slot="2">2 권총</div>
-    <div class="slot" data-slot="3">3 칼</div>
-    <div class="slot bandageSlot" data-slot="4" onclick="useBandage()"><div class="bandageIcon"></div></div>
-    <div class="slot locked" data-slot="5">5 샷건</div>
-    <div class="slot locked" data-slot="6">6 수류탄</div>
-    <div class="slot locked" data-slot="7">7 RPG</div>
+    <div class="slot" data-slot="1"><span class="num">1</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="17" width="24" height="4"/><rect x="9" y="21" width="4" height="7"/><rect x="26" y="13" width="4" height="4"/><rect x="2" y="15" width="6" height="8" rx="1"/></svg></div>
+    <div class="slot" data-slot="2"><span class="num">2</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="8" y="15" width="20" height="5"/><rect x="9" y="19" width="7" height="13" transform="rotate(14 12.5 25.5)"/></svg></div>
+    <div class="slot bandageSlot" data-slot="3" onclick="useBandage()"><span class="num">3</span><div class="bandageIcon"></div></div>
+    <div class="slot locked" data-slot="4"><span class="num">4</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="15" width="26" height="3.5"/><rect x="4" y="20" width="26" height="3.5"/><rect x="2" y="14" width="6" height="10" rx="1"/></svg></div>
+    <div class="slot locked" data-slot="5"><span class="num">5</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><circle cx="20" cy="24" r="9"/><rect x="17" y="9" width="6" height="6"/><rect x="14" y="6" width="12" height="3"/></svg></div>
+    <div class="slot locked" data-slot="6"><span class="num">6</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="17" width="24" height="6" rx="2"/><polygon points="28,14 36,20 28,26"/><rect x="10" y="23" width="4" height="8"/></svg></div>
+  </div>
   </div>
   <div id="coinDisplay">🪙 0</div>
   <div id="killFeed"></div>
@@ -165,7 +173,7 @@
     <div id="enemyNameLabel">상대</div>
     <div id="enemyHealthBarBg"><div id="enemyHealthBar"></div></div>
   </div>
-  <div id="hint">WASD 이동 · 스페이스 점프 · 좌클릭 공격 · 휠 무기 변경 · R 재장전 · Enter 콘솔</div>
+  <div id="hint">WASD 이동 · SHIFT 달리기 · CTRL 앉기(+W 슬라이딩) · Z 엎드리기 · 스페이스 점프 · 좌클릭 공격 · 우클릭 조준 · 휠 무기 변경 · R 재장전 · E 탄약 줍기 · Enter 콘솔</div>
 </div>
 <div id="enemyNameTag"></div>
 
@@ -192,20 +200,47 @@
 ========================================================= */
 
 // ---------- 상수 ----------
-const ISLAND_HALF_X = 20, ISLAND_HALF_Z = 15; // 직사각형 섬 크기
+const ISLAND_HALF_X = 20, ISLAND_HALF_Z = 26; // 직사각형 섬 크기 (옆으로 더 넓게)
 const ISLAND_A_X = -45, ISLAND_B_X = 45;
 const BRIDGE_HALF_LEN = 25, BRIDGE_HALF_WID = 3;
 const BRIDGE_SAG = 1.4; // 밧줄다리 중앙이 처지는 정도
 const GRAVITY = -26, JUMP_SPEED = 9;
 const EYE_H = 1.7;
 
+// 오른쪽: 다리 중간에 붙은 작은 은신처
+const HIDEOUT_HALF_X = 4.5;
+const HIDEOUT_Z_MIN = BRIDGE_HALF_WID;
+const HIDEOUT_Z_MAX = BRIDGE_HALF_WID + 11;
+
+// 왼쪽: 물 밑을 지나는 수중 터널
+const TUNNEL_Z = -19;
+const TUNNEL_HALF_WID = 2.6;
+const TUNNEL_FLOOR_Y = -7.2;
+const TUNNEL_RAMP_LEN = 12;
+
 function bridgeSagY(x){
   const t = Math.min(1, Math.max(0, (x+BRIDGE_HALF_LEN)/(2*BRIDGE_HALF_LEN)));
   return -BRIDGE_SAG*4*t*(1-t);
 }
 
+function tunnelHeightAt(x){
+  const edgeA = ISLAND_A_X + ISLAND_HALF_X;
+  const edgeB = ISLAND_B_X - ISLAND_HALF_X;
+  if (x < edgeA - TUNNEL_RAMP_LEN || x > edgeB + TUNNEL_RAMP_LEN) return null;
+  if (x < edgeA){
+    const t = Math.min(1, Math.max(0, (x - (edgeA-TUNNEL_RAMP_LEN)) / TUNNEL_RAMP_LEN));
+    return 0 + (TUNNEL_FLOOR_Y-0)*t;
+  }
+  if (x > edgeB){
+    const t = Math.min(1, Math.max(0, ((edgeB+TUNNEL_RAMP_LEN) - x) / TUNNEL_RAMP_LEN));
+    return 0 + (TUNNEL_FLOOR_Y-0)*t;
+  }
+  return TUNNEL_FLOOR_Y;
+}
+
 let bridgeIntact = true;
 let bridgeGroup = null;
+let tunnelGroup = null;
 let obstacles = []; // {x,z,radius} - 나무/엄폐물 등 충돌 가능한 장애물
 
 function isBlockedByObstacle(x,z){
@@ -233,7 +268,9 @@ function raycastObstacles(origin, dir, maxDist){
     if (t < 0) t = (-b + sq) / (2*a);
     if (t <= 0 || t >= closest) continue;
     const hy = origin.y + dir.y*t;
-    if (hy >= -0.5 && hy <= (o.height!==undefined ? o.height : 2.5)){
+    const yMin = o.yMin !== undefined ? o.yMin : -0.5;
+    const yMax = o.yMax !== undefined ? o.yMax : (o.height!==undefined ? o.height : 2.5);
+    if (hy >= yMin && hy <= yMax){
       closest = t;
     }
   }
@@ -241,10 +278,19 @@ function raycastObstacles(origin, dir, maxDist){
 }
 
 function groundHeightAt(x,z){
+  // 왼쪽 수중 터널 (섬 안쪽 진입로 포함)
+  if (Math.abs(z-TUNNEL_Z) <= TUNNEL_HALF_WID){
+    const th = tunnelHeightAt(x);
+    if (th !== null) return th;
+  }
   const onA = Math.abs(x-ISLAND_A_X) <= ISLAND_HALF_X && Math.abs(z) <= ISLAND_HALF_Z;
   const onB = Math.abs(x-ISLAND_B_X) <= ISLAND_HALF_X && Math.abs(z) <= ISLAND_HALF_Z;
   if (onA || onB) return 0;
-  if (bridgeIntact && Math.abs(z) <= BRIDGE_HALF_WID && x >= -BRIDGE_HALF_LEN && x <= BRIDGE_HALF_LEN) return bridgeSagY(x);
+  if (bridgeIntact){
+    if (Math.abs(z) <= BRIDGE_HALF_WID && x >= -BRIDGE_HALF_LEN && x <= BRIDGE_HALF_LEN) return bridgeSagY(x);
+    // 오른쪽 작은 은신처 (다리와 같은 높이로 이어짐)
+    if (Math.abs(x) <= HIDEOUT_HALF_X && z > HIDEOUT_Z_MIN && z <= HIDEOUT_Z_MAX) return bridgeSagY(x);
+  }
   return null; // 물/공중 (다리가 파괴된 구간 포함)
 }
 
@@ -254,14 +300,13 @@ function groundHeightAt(x,z){
 const WEAPONS = {
   rifle:   { name:'소총',   type:'hitscan', dmgUpper:100, dmgLower:70, rate:130, mag:30, reserve:90, spread:0.015, auto:true, hitRadius:0.95, bulletRadius:0.06 },
   pistol:  { name:'권총',   type:'hitscan', dmgUpper:70,  dmgLower:30, rate:260, mag:12, reserve:48, spread:0.01,  auto:false, hitRadius:0.95, bulletRadius:0.06 },
-  knife:   { name:'칼',     type:'melee',   dmg:70, range:2.6, rate:450 },
   bandage: { name:'붕대',   type:'heal',    heal:100, cooldown:4000 },
   shotgun: { name:'샷건',   type:'hitscan', dmgUpper:150, dmgLower:100, pellets:8, rate:800, mag:6, reserve:18, spread:0.09, cost:100, hitRadius:1.3, bulletRadius:0.07 },
   grenade: { name:'수류탄', type:'grenade', dmgUpperContact:80, dmgLowerContact:70, dmgSplash:50, contactRadius:1.4, splashRadius:7, rate:900, cost:200, speed:22 },
   rpg:     { name:'RPG',    type:'rocket',  dmgUpperContact:200, dmgLowerContact:150, dmgSplash:100, contactRadius:1.7, splashRadius:9, rate:1400, cost:500, speed:38 }
 };
 const SHOP_ORDER = ['shotgun','grenade','rpg'];
-const WEAPON_CYCLE = ['rifle','pistol','knife','shotgun','grenade','rpg'];
+const WEAPON_CYCLE = ['rifle','pistol','shotgun','grenade','rpg'];
 const MATCH_SLOTS = ['bw-open-1','bw-open-2','bw-open-3','bw-open-4','bw-open-5'];
 
 // ---------- 상태 ----------
@@ -277,6 +322,12 @@ let velocity = new THREE.Vector3();
 let grounded = false;
 let pointerLocked = false;
 let viewmodel = null;
+let aiming = false;
+let currentFov = 75;
+let sliding = false;
+let slideTimer = 0;
+let slideDir = new THREE.Vector3();
+let curEyeH = EYE_H;
 
 // ---------- 진행 상황 저장 (코인 / 보유 무기) ----------
 const PROFILE_KEY = 'bridgeWarProfile_v1';
@@ -304,13 +355,18 @@ function saveProfile(){
       owned: { shotgun: local.owned.shotgun, grenade: local.owned.grenade, rpg: local.owned.rpg }
     }));
   }catch(e){}
+  updateHomeCoinDisplay();
+}
+function updateHomeCoinDisplay(){
+  const el = document.getElementById('homeCoinDisplay');
+  if (el) el.textContent = `🪙 보유 코인: ${local.coins}`;
 }
 let profile = loadProfile();
 
 let local = {
   x:0, y:EYE_H, z:0, hp:100, maxHp:100, coins:profile.coins, alive:true, nickname:'플레이어',
   weapon:'rifle', ammo:{rifle:30,pistol:12,shotgun:6}, reserve:{rifle:90,pistol:48,shotgun:18},
-  owned:{rifle:true,pistol:true,knife:true,shotgun:profile.owned.shotgun,grenade:profile.owned.grenade,rpg:profile.owned.rpg},
+  owned:{rifle:true,pistol:true,shotgun:profile.owned.shotgun,grenade:profile.owned.grenade,rpg:profile.owned.rpg},
   lastFire:0, lastKnife:0, lastBandage:0, reloading:false
 };
 let remote = {
@@ -318,7 +374,9 @@ let remote = {
 };
 let projectiles = []; // {mesh, vel, type, born, bounces}
 let coinPickups = [];
+let ammoPickups = [];
 let explosionFX = [];
+updateHomeCoinDisplay();
 
 // ---------- 메뉴 로직 ----------
 function getNickname(){
@@ -491,6 +549,7 @@ function startGame(m, diff){
   if (mode==='ai') spawnBot();
   else spawnRemoteMesh();
   spawnCoinPickups();
+  spawnAmmoPickups();
   requestPointerLock();
   updateWeaponUI();
   setViewmodel(local.weapon);
@@ -508,10 +567,12 @@ function exitToMenu(){
   }
   scene=null; camera=null; renderer=null;
   projectiles=[]; coinPickups=[]; obstacles=[]; explosionFX=[];
-  bridgeGroup=null; bridgeIntact=true;
+  clearAmmoPickups();
+  bridgeGroup=null; bridgeIntact=true; tunnelGroup=null;
   remote.mesh=null; remote.weaponMesh=null; remote.currentWeaponMeshType=null;
   bot=null;
   viewmodel=null;
+  aiming=false; sliding=false; curEyeH=EYE_H;
   mode=null;
   document.getElementById('hud').style.display='none';
   document.getElementById('deathScreen').classList.remove('show');
@@ -539,7 +600,9 @@ function rebuildBridge(){
 
 function checkBridgeDestruction(pos){
   if (!bridgeIntact) return;
-  if (Math.abs(pos.z) <= BRIDGE_HALF_WID+2 && pos.x >= -BRIDGE_HALF_LEN-2 && pos.x <= BRIDGE_HALF_LEN+2){
+  const nearBridge = Math.abs(pos.z) <= BRIDGE_HALF_WID+2 && pos.x >= -BRIDGE_HALF_LEN-2 && pos.x <= BRIDGE_HALF_LEN+2;
+  const nearHideout = Math.abs(pos.x) <= HIDEOUT_HALF_X+2 && pos.z >= HIDEOUT_Z_MIN-1 && pos.z <= HIDEOUT_Z_MAX+2;
+  if (nearBridge || nearHideout){
     destroyBridge(true);
   }
 }
@@ -626,9 +689,11 @@ function initThree(){
   camera.rotation.order = 'YXZ';
   scene.add(camera); // 카메라를 씬에 포함시켜야 1인칭 무기 뷰모델(카메라의 자식)이 렌더링됨
 
-  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
   renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 1.5));
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   document.body.appendChild(renderer.domElement);
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 0.9);
@@ -636,9 +701,10 @@ function initThree(){
   const sun = new THREE.DirectionalLight(0xfff2d0, 1.1);
   sun.position.set(60,90,30);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048,2048);
-  sun.shadow.camera.left=-90; sun.shadow.camera.right=90;
-  sun.shadow.camera.top=90; sun.shadow.camera.bottom=-90;
+  sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-100; sun.shadow.camera.right=100;
+  sun.shadow.camera.top=100; sun.shadow.camera.bottom=-100;
+  sun.shadow.camera.far=260;
   scene.add(sun);
 
   // 물
@@ -653,6 +719,7 @@ function initThree(){
   buildIsland(ISLAND_A_X, 0xff6b6b);
   buildIsland(ISLAND_B_X, 0x4d96ff);
   buildBridge();
+  buildTunnel();
 
   window.addEventListener('resize', ()=>{
     camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
@@ -669,13 +736,13 @@ function buildIsland(cx, accent){
   // 맨 밑: 돌
   const stone = new THREE.Mesh(new THREE.BoxGeometry(w, stoneH, d), new THREE.MeshStandardMaterial({color:0x757575, roughness:1}));
   stone.position.set(cx, -grassH-dirtH-stoneH/2, 0);
-  stone.receiveShadow=true; stone.castShadow=true;
+  stone.receiveShadow=false; stone.castShadow=false;
   scene.add(stone);
 
   // 그 다음: 흙
   const dirt = new THREE.Mesh(new THREE.BoxGeometry(w, dirtH, d), new THREE.MeshStandardMaterial({color:0x6b4423, roughness:1}));
   dirt.position.set(cx, -grassH-dirtH/2, 0);
-  dirt.receiveShadow=true; dirt.castShadow=true;
+  dirt.receiveShadow=false; dirt.castShadow=false;
   scene.add(dirt);
 
   // 맨 위: 잔디 (걸어다니는 표면, y=0)
@@ -697,6 +764,7 @@ function buildIsland(cx, accent){
     const tx = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
     const tz = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
     if (Math.hypot(tx-cx,tz) < 7) continue;
+    if (Math.abs(tz-TUNNEL_Z) < TUNNEL_HALF_WID+3) continue; // 터널 입구는 비워둠
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.4,2.4,6), new THREE.MeshStandardMaterial({color:0x6b4423}));
     trunk.position.set(tx, 1.2, tz); trunk.castShadow=true;
     const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.6,3,8), new THREE.MeshStandardMaterial({color:0x2f7d32}));
@@ -710,11 +778,141 @@ function buildIsland(cx, accent){
     const bx = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
     const bz = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
     if (Math.hypot(bx-cx,bz) < 5) continue;
+    if (Math.abs(bz-TUNNEL_Z) < TUNNEL_HALF_WID+3) continue; // 터널 입구는 비워둠
     const box = new THREE.Mesh(new THREE.BoxGeometry(2.2,1.4,2.2), new THREE.MeshStandardMaterial({color:0x999999}));
     box.position.set(bx, 0.7, bz); box.castShadow=true; box.receiveShadow=true;
     scene.add(box);
     obstacles.push({x:bx, z:bz, radius:1.55, height:1.4});
   }
+
+  // 1~2인용 은신처(참호) - 다리를 마주보는 방향으로 입구가 열려있음
+  buildFoxhole(cx, cx < 0 ? 1 : -1, 8);
+}
+
+// 1~2인용 작은 은신처(참호): U자형 낮은 벽, facingSign 방향이 열려있음
+function buildFoxhole(cx, facingSign, z){
+  const dirtMat = new THREE.MeshStandardMaterial({color:0x5a3d22, roughness:1});
+  const grassMat = new THREE.MeshStandardMaterial({color:0x4a8f3c, roughness:0.95});
+
+  const width = 4.2;   // Z 방향 폭
+  const depth = 3.6;   // X 방향 깊이 (안쪽으로)
+  const roomH = 2.1;   // 내부 높이 (1~2인 정도)
+  const wallT = 0.45;
+  const hw = width/2;
+
+  const fx = cx + facingSign*(ISLAND_HALF_X-8); // 입구 위치 (다리 쪽을 향함)
+  const midX = fx - facingSign*depth/2;
+  const backX = fx - facingSign*depth;
+
+  // 바닥 (다져진 흙바닥)
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(depth+wallT, 0.15, width), dirtMat);
+  floor.position.set(midX, 0.02, z);
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // 뒷벽 (입구 반대쪽)
+  const back = new THREE.Mesh(new THREE.BoxGeometry(wallT, roomH, width), dirtMat);
+  back.position.set(backX, roomH/2, z);
+  back.castShadow = true; back.receiveShadow = true;
+  scene.add(back);
+
+  // 좌우 흙벽
+  for (const s of [-1,1]){
+    const side = new THREE.Mesh(new THREE.BoxGeometry(depth, roomH, wallT), dirtMat);
+    side.position.set(midX, roomH/2, z + s*hw);
+    side.castShadow = true; side.receiveShadow = true;
+    scene.add(side);
+    obstacles.push({x:side.position.x, z:side.position.z, radius:0.55, height:roomH+0.3});
+  }
+
+  // 천장 (흙 + 잔디 지붕, 밖에서 보면 작은 언덕처럼 보임)
+  const roofDirt = new THREE.Mesh(new THREE.BoxGeometry(depth+wallT, 0.5, width+wallT*2), dirtMat);
+  roofDirt.position.set(midX, roomH+0.25, z);
+  roofDirt.castShadow = true; roofDirt.receiveShadow = true;
+  scene.add(roofDirt);
+  const roofGrass = new THREE.Mesh(new THREE.BoxGeometry(depth+wallT+0.5, 0.35, width+wallT*2+0.5), grassMat);
+  roofGrass.position.set(midX, roomH+0.5+0.175, z);
+  roofGrass.castShadow = true; roofGrass.receiveShadow = true;
+  scene.add(roofGrass);
+
+  // 뒷벽 충돌 (입구 쪽은 열어둠)
+  obstacles.push({x:backX, z:z, radius:width*0.42, height:roomH+0.3});
+
+  // 내부 장식 (작은 돌/모래주머니)
+  for (let i=0;i<3;i++){
+    const bag = new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6), new THREE.MeshStandardMaterial({color:0x6a5a42}));
+    bag.position.set(backX + facingSign*0.5, 0.25, z + (i-1)*1.1);
+    bag.scale.y = 0.55;
+    scene.add(bag);
+  }
+}
+
+// ---------- 왼쪽: 물 밑을 지나는 수중 터널 ----------
+function buildTunnel(){
+  const group = new THREE.Group();
+  const wallMat = new THREE.MeshStandardMaterial({color:0x445566, roughness:0.85});
+  const floorMat = new THREE.MeshStandardMaterial({color:0x53687a, roughness:0.9});
+
+  const edgeA = ISLAND_A_X + ISLAND_HALF_X;
+  const edgeB = ISLAND_B_X - ISLAND_HALF_X;
+  const startX = edgeA - TUNNEL_RAMP_LEN;
+  const endX = edgeB + TUNNEL_RAMP_LEN;
+  const segCount = 22;
+  const segW = (endX-startX)/segCount;
+
+  for (let i=0;i<segCount;i++){
+    const x = startX + segW*(i+0.5);
+    const y = tunnelHeightAt(x);
+    if (y===null) continue;
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(segW*1.05, 0.3, TUNNEL_HALF_WID*2), floorMat);
+    floor.position.set(x, y-0.15, TUNNEL_Z);
+    floor.receiveShadow = true;
+    group.add(floor);
+
+    const ceil = new THREE.Mesh(new THREE.BoxGeometry(segW*1.05, 0.3, TUNNEL_HALF_WID*2+0.7), wallMat);
+    ceil.position.set(x, y+3.0, TUNNEL_Z);
+    ceil.castShadow = true;
+    group.add(ceil);
+
+    for (const zs of [-1,1]){
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(segW*1.05, 3.15, 0.3), wallMat);
+      wall.position.set(x, y+1.5, TUNNEL_Z + zs*TUNNEL_HALF_WID);
+      group.add(wall);
+      // 터널 옆벽은 총알과 이동을 막는 장애물로 등록 (해저터널을 뚫고 쏠 수 없게)
+      obstacles.push({x, z:TUNNEL_Z + zs*TUNNEL_HALF_WID, radius:segW*0.42, yMin:y-0.6, yMax:y+3.2, isTunnel:true});
+    }
+  }
+
+  // 은은한 조명 (내부가 어두우니 밝혀줌)
+  for (let i=1;i<=3;i++){
+    const lx = startX + (endX-startX)*(i/4);
+    const ly = tunnelHeightAt(lx);
+    if (ly===null) continue;
+    const light = new THREE.PointLight(0xffcc88, 1.1, 15);
+    light.position.set(lx, ly+2.3, TUNNEL_Z);
+    group.add(light);
+  }
+
+  // 입구 아치 + 어두운 입구 표시 (지면 위에서 터널 입구임을 알 수 있게)
+  const archMat = new THREE.MeshStandardMaterial({color:0x3a2a1a, roughness:0.9});
+  for (const ex of [startX, endX]){
+    const postH = 2.3;
+    for (const zs of [-1,1]){
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.22,postH,8), archMat);
+      post.position.set(ex, postH/2, TUNNEL_Z + zs*TUNNEL_HALF_WID);
+      group.add(post);
+    }
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, TUNNEL_HALF_WID*2+0.6), archMat);
+    lintel.position.set(ex, postH, TUNNEL_Z);
+    group.add(lintel);
+    const hole = new THREE.Mesh(new THREE.PlaneGeometry(TUNNEL_HALF_WID*2*0.85, 3.2), new THREE.MeshBasicMaterial({color:0x0a0f16}));
+    hole.rotation.x = -Math.PI/2;
+    hole.position.set(ex, 0.03, TUNNEL_Z);
+    group.add(hole);
+  }
+
+  scene.add(group);
+  tunnelGroup = group;
 }
 
 function buildBridge(){
@@ -731,7 +929,7 @@ function buildBridge(){
     const plank = new THREE.Mesh(new THREE.BoxGeometry(plankWidth*0.82, 0.22, BRIDGE_HALF_WID*2), plankMat);
     plank.position.set(x, y, 0);
     plank.rotation.z = -(bridgeSagY(x+0.5)-bridgeSagY(x-0.5))*0.15;
-    plank.castShadow=true; plank.receiveShadow=true;
+    plank.castShadow=false; plank.receiveShadow=true;
     group.add(plank);
     planks.push({x,y});
   }
@@ -767,6 +965,36 @@ function buildBridge(){
     }
   }
 
+  // 오른쪽: 다리 중간에 붙은 작은 은신처 (덱 + 낮은 엄폐벽)
+  const hideoutSegCount = 8;
+  const hideoutSegW = (HIDEOUT_HALF_X*2)/hideoutSegCount;
+  const hideoutDepth = HIDEOUT_Z_MAX - HIDEOUT_Z_MIN;
+  for (let i=0;i<hideoutSegCount;i++){
+    const hx = -HIDEOUT_HALF_X + hideoutSegW*(i+0.5);
+    const hy = bridgeSagY(hx);
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(hideoutSegW*0.96, 0.22, hideoutDepth), plankMat);
+    deck.position.set(hx, hy, (HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2);
+    deck.receiveShadow = true;
+    group.add(deck);
+  }
+  const wallMat = new THREE.MeshStandardMaterial({color:0x6b4a2a, roughness:0.9});
+  const hWallY = bridgeSagY(0)+0.65;
+  const backWall = new THREE.Mesh(new THREE.BoxGeometry(HIDEOUT_HALF_X*2*0.92, 1.2, 0.3), wallMat);
+  backWall.position.set(0, hWallY, HIDEOUT_Z_MAX-0.35);
+  group.add(backWall);
+  const sideWallL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, hideoutDepth*0.75), wallMat);
+  sideWallL.position.set(-HIDEOUT_HALF_X*0.82, hWallY, (HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2);
+  group.add(sideWallL);
+  const sideWallR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, hideoutDepth*0.75), wallMat);
+  sideWallR.position.set(HIDEOUT_HALF_X*0.82, hWallY, (HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2);
+  group.add(sideWallR);
+
+  // 은신처 장애물(엄폐/충돌) 등록 - 재건될 때마다 이전 것 제거 후 갱신
+  obstacles = obstacles.filter(o => !o.isHideout);
+  obstacles.push({x:0, z:HIDEOUT_Z_MAX-0.35, radius:HIDEOUT_HALF_X*0.95, height:2.0, isHideout:true});
+  obstacles.push({x:-HIDEOUT_HALF_X*0.82, z:(HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2, radius:0.5, height:2.0, isHideout:true});
+  obstacles.push({x:HIDEOUT_HALF_X*0.82, z:(HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2, radius:0.5, height:2.0, isHideout:true});
+
   scene.add(group);
   bridgeGroup = group;
   bridgeIntact = true;
@@ -777,6 +1005,7 @@ function spawnLocal(){
   const spawnX = (mode==='client') ? ISLAND_B_X : ISLAND_A_X;
   local.x = spawnX; local.z = 0; local.y = EYE_H; local.hp=100; local.alive=true;
   yaw = (mode==='client') ? Math.PI : 0; pitch=0;
+  curEyeH = EYE_H; sliding=false;
   camera.position.set(local.x, local.y, local.z);
 }
 
@@ -802,14 +1031,21 @@ function spawnBot(){
   remote.hp = bot.hp; remote.maxHp=bot.maxHp;
 }
 
+function randomIslandSpot(cx){
+  let x,z;
+  do {
+    x = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
+    z = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
+  } while (Math.abs(z-TUNNEL_Z) < TUNNEL_HALF_WID+4);
+  return {x,z};
+}
+
 function spawnCoinPickups(){
   coinPickups = [];
   const spots = [];
   for (const cx of [ISLAND_A_X, ISLAND_B_X]){
     for(let i=0;i<4;i++){
-      const x = cx + (Math.random()*2-1)*(ISLAND_HALF_X-4);
-      const z = (Math.random()*2-1)*(ISLAND_HALF_Z-4);
-      spots.push({x, z});
+      spots.push(randomIslandSpot(cx));
     }
   }
   for (const s of spots){
@@ -821,16 +1057,85 @@ function spawnCoinPickups(){
   }
 }
 
+// ---------- 탄약 픽업 (땅에 떨어진 탄약, E로 습득) ----------
+function spawnAmmoPickups(){
+  clearAmmoPickups();
+  const types = ['rifle','pistol','shotgun'];
+  let idx = 0;
+  for (const cx of [ISLAND_A_X, ISLAND_B_X]){
+    for (let i=0;i<3;i++){
+      const {x,z} = randomIslandSpot(cx);
+      const type = types[idx % types.length]; idx++;
+      const color = type==='rifle' ? 0x4a8f3c : type==='pistol' ? 0x3a86ff : 0xff8c00;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.4,0.4), new THREE.MeshStandardMaterial({color, metalness:0.3, roughness:0.6}));
+      mesh.position.set(x, 0.4, z);
+      mesh.castShadow = false;
+      scene.add(mesh);
+      const label = document.createElement('div');
+      label.className = 'ammoLabel';
+      label.textContent = WEAPONS[type].name + ' 탄약 (E)';
+      document.body.appendChild(label);
+      ammoPickups.push({mesh, label, x, z, type, active:true, respawnAt:0});
+    }
+  }
+}
+
+function clearAmmoPickups(){
+  for (const p of ammoPickups){
+    if (p.label && p.label.parentNode) p.label.parentNode.removeChild(p.label);
+  }
+  ammoPickups = [];
+}
+
+function updateAmmoPickups(dt){
+  const now = performance.now();
+  for (const p of ammoPickups){
+    if (p.mesh) p.mesh.rotation.y += dt*1.6;
+    if (!p.active){
+      if (now > p.respawnAt){ p.active=true; p.mesh.visible=true; }
+      else { p.label.style.display='none'; continue; }
+    }
+    const wp = new THREE.Vector3(p.x, 1.1, p.z);
+    const proj = wp.clone().project(camera);
+    if (proj.z>1 || proj.z<-1 || Math.hypot(local.x-p.x, local.z-p.z) > 30){
+      p.label.style.display='none';
+    } else {
+      p.label.style.display='block';
+      p.label.style.left = ((proj.x*0.5+0.5)*innerWidth)+'px';
+      p.label.style.top = ((-proj.y*0.5+0.5)*innerHeight)+'px';
+    }
+  }
+}
+
+function tryPickupAmmo(){
+  if (!local.alive) return;
+  for (const p of ammoPickups){
+    if (!p.active) continue;
+    if (Math.hypot(local.x-p.x, local.z-p.z) < 2.3){
+      if (p.type==='shotgun' && !local.owned.shotgun){
+        addKillFeed('샷건을 보유하고 있지 않아 사용할 수 없습니다');
+        return;
+      }
+      local.ammo[p.type] = WEAPONS[p.type].mag;
+      local.reserve[p.type] = WEAPONS[p.type].reserve;
+      p.active = false; p.mesh.visible = false; p.respawnAt = performance.now()+20000;
+      addKillFeed(`🔫 ${WEAPONS[p.type].name} 탄약 완충!`);
+      updateWeaponUI();
+      return;
+    }
+  }
+}
+
 // ---------- 입력 ----------
 document.addEventListener('keydown', e=>{
   keys[e.code]=true;
   if (e.code==='Digit1') switchWeapon('rifle');
   if (e.code==='Digit2') switchWeapon('pistol');
-  if (e.code==='Digit3') switchWeapon('knife');
-  if (e.code==='Digit4') useBandage();
-  if (e.code==='Digit5') switchWeapon('shotgun');
-  if (e.code==='Digit6') switchWeapon('grenade');
-  if (e.code==='Digit7') switchWeapon('rpg');
+  if (e.code==='Digit3') useBandage();
+  if (e.code==='KeyE') tryPickupAmmo();
+  if (e.code==='Digit4') switchWeapon('shotgun');
+  if (e.code==='Digit5') switchWeapon('grenade');
+  if (e.code==='Digit6') switchWeapon('rpg');
   if (e.code==='KeyR') reload();
   if (e.code==='Enter'){
     const c = document.getElementById('console');
@@ -848,10 +1153,13 @@ document.addEventListener('keydown', e=>{
 });
 document.addEventListener('keyup', e=>{ keys[e.code]=false; });
 
+document.addEventListener('contextmenu', e=>{ if (mode) e.preventDefault(); });
+
 document.addEventListener('mousemove', e=>{
   if (!pointerLocked) return;
-  yaw -= e.movementX * 0.0022;
-  pitch -= e.movementY * 0.0022;
+  const sens = aiming ? 0.0011 : 0.0022;
+  yaw -= e.movementX * sens;
+  pitch -= e.movementY * sens;
   pitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, pitch));
 });
 
@@ -862,16 +1170,23 @@ document.addEventListener('click', ()=>{
     tryFire();
   }
 });
-document.addEventListener('mousedown', e=>{ if(e.button===0 && pointerLocked) fireHeld=true; });
-document.addEventListener('mouseup', e=>{ if(e.button===0) fireHeld=false; });
+document.addEventListener('mousedown', e=>{
+  if (e.button===0 && pointerLocked) fireHeld=true;
+  if (e.button===2 && pointerLocked && local.alive) aiming=true;
+});
+document.addEventListener('mouseup', e=>{
+  if (e.button===0) fireHeld=false;
+  if (e.button===2) aiming=false;
+});
 
 document.addEventListener('pointerlockchange', ()=>{
   pointerLocked = document.pointerLockElement === renderer.domElement;
+  if (!pointerLocked){ aiming=false; fireHeld=false; }
 });
 
 document.addEventListener('wheel', e=>{
   if (!pointerLocked || !local.alive) return;
-  const order = WEAPON_CYCLE.filter(k => k==='rifle' || k==='pistol' || k==='knife' || local.owned[k]);
+  const order = WEAPON_CYCLE.filter(k => k==='rifle' || k==='pistol' || local.owned[k]);
   let idx = order.indexOf(local.weapon);
   if (idx === -1) idx = 0;
   idx = (idx + (e.deltaY > 0 ? 1 : -1) + order.length) % order.length;
@@ -1032,12 +1347,13 @@ function doHitscan(w){
   const targetBaseZ = mode==='ai' ? remote.z : remote.mesh.position.z;
   const targetGroundY = groundHeightAt(targetBaseX, targetBaseZ) || 0;
   const targetPos = new THREE.Vector3(targetBaseX, targetGroundY+1.1, targetBaseZ);
+  const spread = aiming ? w.spread*0.3 : w.spread;
   let hit=false, hitPart='lower';
   for (let i=0;i<pellets;i++){
     const dir = getAimDir();
-    dir.x += (Math.random()-0.5)*w.spread;
-    dir.y += (Math.random()-0.5)*w.spread;
-    dir.z += (Math.random()-0.5)*w.spread;
+    dir.x += (Math.random()-0.5)*spread;
+    dir.y += (Math.random()-0.5)*spread;
+    dir.z += (Math.random()-0.5)*spread;
     dir.normalize();
     const obstacleDist = raycastObstacles(origin, dir, 200);
     const toTarget = targetPos.clone().sub(origin);
@@ -1062,13 +1378,18 @@ function doHitscan(w){
   send({t:'fx', kind:'shot', x:origin.x,y:origin.y,z:origin.z, yaw, pitch});
 }
 
+const _bulletGeo = new THREE.SphereGeometry(1,6,6);
+const _bulletMat = new THREE.MeshBasicMaterial({color:0xfff4b0});
+const _tracerGeo = new THREE.CylinderGeometry(1,1,1,6,1,true);
+
 function spawnTracer(origin, dir, radius, travelDist){
   radius = radius || 0.05;
   travelDist = travelDist || 60;
   const end = origin.clone().add(dir.clone().multiplyScalar(travelDist));
 
-  // 실제로 날아가는 총알 (짧은 시간 동안 이동하며 보임)
-  const bullet = new THREE.Mesh(new THREE.SphereGeometry(radius*2.2,8,8), new THREE.MeshBasicMaterial({color:0xfff4b0}));
+  // 실제로 날아가는 총알 (짧은 시간 동안 이동하며 보임) - geometry/material 재사용으로 성능 확보
+  const bullet = new THREE.Mesh(_bulletGeo, _bulletMat);
+  bullet.scale.setScalar(radius*2.2);
   bullet.position.copy(origin);
   scene.add(bullet);
   const startT = performance.now();
@@ -1076,24 +1397,24 @@ function spawnTracer(origin, dir, radius, travelDist){
   const stepBullet = ()=>{
     const t = Math.min(1, (performance.now()-startT)/dur);
     bullet.position.lerpVectors(origin, end, t);
-    if (t>=1){ scene.remove(bullet); bullet.geometry.dispose(); bullet.material.dispose(); return; }
+    if (t>=1){ scene.remove(bullet); return; }
     requestAnimationFrame(stepBullet);
   };
   stepBullet();
 
-  // 뒤에 남는 잔상 트레이서
+  // 뒤에 남는 잔상 트레이서 (유닛 실린더를 스케일해서 재사용)
   const length = origin.distanceTo(end);
   if (length > 0.05){
     const mid = origin.clone().add(end).multiplyScalar(0.5);
-    const geo = new THREE.CylinderGeometry(radius*0.6, radius*0.6, length, 6, 1, true);
     const mat = new THREE.MeshBasicMaterial({color:0xfff2a0, transparent:true, opacity:0.75});
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(_tracerGeo, mat);
+    mesh.scale.set(radius*0.6, length, radius*0.6);
     mesh.position.copy(mid);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
     scene.add(mesh);
     const fade = ()=>{
       mat.opacity -= 0.08;
-      if (mat.opacity<=0){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); return; }
+      if (mat.opacity<=0){ scene.remove(mesh); mat.dispose(); return; }
       requestAnimationFrame(fade);
     };
     setTimeout(fade, dur*0.4);
@@ -1249,7 +1570,8 @@ function onLocalDeath(){
 function respawnLocal(){
   local.alive=true; local.hp=local.maxHp;
   const spawnX = (mode==='client') ? ISLAND_B_X : ISLAND_A_X;
-  local.x=spawnX; local.z=0; camera.position.set(local.x, EYE_H, local.z);
+  local.x=spawnX; local.z=0; curEyeH=EYE_H; sliding=false; local.y=EYE_H;
+  camera.position.set(local.x, EYE_H, local.z);
   local.ammo.rifle=WEAPONS.rifle.mag; local.reserve.rifle=WEAPONS.rifle.reserve;
   local.ammo.pistol=WEAPONS.pistol.mag; local.reserve.pistol=WEAPONS.pistol.reserve;
   if (local.owned.shotgun){ local.ammo.shotgun=WEAPONS.shotgun.mag; local.reserve.shotgun=WEAPONS.shotgun.reserve; }
@@ -1300,26 +1622,62 @@ function updateWeaponUI(){
   else if (w.type==='melee') document.getElementById('ammoText').textContent = '근접무기';
   else if (w.type==='grenade' || w.type==='rocket') document.getElementById('ammoText').textContent = '투척/발사';
   document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active'));
-  const map = {rifle:1,pistol:2,knife:3,bandage:4,shotgun:5,grenade:6,rpg:7};
+  const map = {rifle:1,pistol:2,bandage:3,shotgun:4,grenade:5,rpg:6};
   const activeSlot = document.querySelector(`.slot[data-slot="${map[local.weapon]}"]`);
   if (activeSlot) activeSlot.classList.add('active');
-  document.querySelector('.slot[data-slot="5"]').classList.toggle('locked', !local.owned.shotgun);
-  document.querySelector('.slot[data-slot="6"]').classList.toggle('locked', !local.owned.grenade);
-  document.querySelector('.slot[data-slot="7"]').classList.toggle('locked', !local.owned.rpg);
+  document.querySelector('.slot[data-slot="4"]').classList.toggle('locked', !local.owned.shotgun);
+  document.querySelector('.slot[data-slot="5"]').classList.toggle('locked', !local.owned.grenade);
+  document.querySelector('.slot[data-slot="6"]').classList.toggle('locked', !local.owned.rpg);
   updateHUD();
 }
 
 // ---------- 이동 처리 ----------
 function updateMovement(dt){
   if (!local.alive) return;
+
+  const shiftHeld = keys['ShiftLeft']||keys['ShiftRight'];
+  const ctrlHeld = keys['ControlLeft']||keys['ControlRight'];
+  const prone = !!keys['KeyZ'];
+  const running = shiftHeld && grounded && !sliding && !prone;
+
+  // 슬라이딩 시작: 달리는 중에 Ctrl+W
+  if (ctrlHeld && keys['KeyW'] && running && !sliding){
+    sliding = true;
+    slideTimer = 0.55;
+    slideDir = new THREE.Vector3(Math.sin(yaw)*-1, 0, Math.cos(yaw)*-1).normalize();
+  }
+  if (sliding){
+    slideTimer -= dt;
+    if (slideTimer <= 0 || !grounded) sliding = false;
+  }
+
+  let speedMul, targetEye;
+  if (sliding){
+    speedMul = 2.2 * Math.max(0.35, slideTimer/0.55);
+    targetEye = EYE_H*0.62;
+  } else if (prone){
+    speedMul = 0.3; targetEye = EYE_H*0.32;
+  } else if (ctrlHeld){
+    speedMul = 0.55; targetEye = EYE_H*0.62;
+  } else if (shiftHeld){
+    speedMul = 1.6; targetEye = EYE_H;
+  } else {
+    speedMul = 1; targetEye = EYE_H;
+  }
+  curEyeH += (targetEye - curEyeH) * Math.min(1, dt*9);
+
   const forward = new THREE.Vector3(Math.sin(yaw)*-1,0,Math.cos(yaw)*-1);
   const right = new THREE.Vector3(forward.z*-1,0,forward.x);
   let move = new THREE.Vector3();
-  if (keys['KeyW']) move.add(forward);
-  if (keys['KeyS']) move.sub(forward);
-  if (keys['KeyA']) move.sub(right);
-  if (keys['KeyD']) move.add(right);
-  if (move.lengthSq()>0) move.normalize().multiplyScalar(6.5*dt);
+  if (sliding){
+    move.copy(slideDir);
+  } else {
+    if (keys['KeyW']) move.add(forward);
+    if (keys['KeyS']) move.sub(forward);
+    if (keys['KeyA']) move.sub(right);
+    if (keys['KeyD']) move.add(right);
+  }
+  if (move.lengthSq()>0) move.normalize().multiplyScalar(6.5*speedMul*dt);
 
   // 장애물(나무/엄폐물)만 축별로 막고, 섬 밖/물 쪽은 자유롭게 걸어나갈 수 있음 (빠지면 사망)
   const tryX = local.x + move.x, tryZ = local.z + move.z;
@@ -1336,7 +1694,7 @@ function updateMovement(dt){
       applyDamageLocal(999,'익사'); // 물에 빠지면 사망
     }
   } else {
-    const targetY = groundY+EYE_H;
+    const targetY = groundY+curEyeH;
     velocity.y += GRAVITY*dt;
     local.y += velocity.y*dt;
     if (local.y <= targetY){
@@ -1344,9 +1702,10 @@ function updateMovement(dt){
     } else {
       grounded = false;
     }
-    if (grounded && keys['Space']){
+    if (grounded && keys['Space'] && !prone){
       velocity.y = JUMP_SPEED;
       grounded = false;
+      sliding = false;
     }
   }
 
@@ -1473,10 +1832,15 @@ function animate(){
   updateMovement(dt);
   updateProjectiles(dt);
   updateCoins(dt);
+  updateAmmoPickups(dt);
   if (mode==='ai') updateBot(dt); else { updateRemoteInterp(dt); sendState(); }
   updateEnemyHUD();
   updateNameTag();
   updateRemoteWeaponMesh();
+
+  const targetFov = aiming ? 42 : 75;
+  currentFov += (targetFov - currentFov) * Math.min(1, dt*10);
+  if (Math.abs(camera.fov - currentFov) > 0.05){ camera.fov = currentFov; camera.updateProjectionMatrix(); }
 
   renderer.render(scene, camera);
 }
