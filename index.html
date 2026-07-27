@@ -98,9 +98,8 @@
 
   .ammoLabel { position:fixed; transform:translate(-50%,-100%); z-index:15; pointer-events:none; display:none; background:#0009; color:#ffe08a; font-weight:900; font-size:11px; padding:3px 8px; border-radius:6px; border:1px solid #ffd16688; white-space:nowrap; }
 
-  .bandageSlot { cursor:pointer; pointer-events:auto; padding:2px; }
-  .bandageIcon { width:100%; height:100%; background:#fff; border-radius:4px; position:relative; }
-  .bandageIcon::after { content:''; position:absolute; left:0; right:0; top:50%; height:6px; transform:translateY(-50%); background:#d6293e; }
+  .slot .num { position:absolute; top:1px; left:3px; font-size:9px; font-weight:900; color:#cde; text-shadow:0 0 3px #000; }
+  .slot.active .num { color:#ffd166; }
 </style>
 </head>
 <body>
@@ -161,7 +160,7 @@
   <div id="weaponSlots">
     <div class="slot" data-slot="1"><span class="num">1</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="17" width="24" height="4"/><rect x="9" y="21" width="4" height="7"/><rect x="26" y="13" width="4" height="4"/><rect x="2" y="15" width="6" height="8" rx="1"/></svg></div>
     <div class="slot" data-slot="2"><span class="num">2</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="8" y="15" width="20" height="5"/><rect x="9" y="19" width="7" height="13" transform="rotate(14 12.5 25.5)"/></svg></div>
-    <div class="slot bandageSlot" data-slot="3" onclick="useBandage()"><span class="num">3</span><div class="bandageIcon"></div></div>
+    <div class="slot" data-slot="3"><span class="num">3</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><polygon points="32,8 36,12 15,33 10,34 11,29"/><rect x="6" y="30" width="9" height="5" transform="rotate(45 10.5 32.5)"/></svg></div>
     <div class="slot locked" data-slot="4"><span class="num">4</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="15" width="26" height="3.5"/><rect x="4" y="20" width="26" height="3.5"/><rect x="2" y="14" width="6" height="10" rx="1"/></svg></div>
     <div class="slot locked" data-slot="5"><span class="num">5</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><circle cx="20" cy="24" r="9"/><rect x="17" y="9" width="6" height="6"/><rect x="14" y="6" width="12" height="3"/></svg></div>
     <div class="slot locked" data-slot="6"><span class="num">6</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="17" width="24" height="6" rx="2"/><polygon points="28,14 36,20 28,26"/><rect x="10" y="23" width="4" height="8"/></svg></div>
@@ -206,11 +205,6 @@ const BRIDGE_HALF_LEN = 25, BRIDGE_HALF_WID = 3;
 const BRIDGE_SAG = 1.4; // 밧줄다리 중앙이 처지는 정도
 const GRAVITY = -26, JUMP_SPEED = 9;
 const EYE_H = 1.7;
-
-// 오른쪽: 다리 중간에 붙은 작은 은신처
-const HIDEOUT_HALF_X = 4.5;
-const HIDEOUT_Z_MIN = BRIDGE_HALF_WID;
-const HIDEOUT_Z_MAX = BRIDGE_HALF_WID + 11;
 
 // 왼쪽: 물 밑을 지나는 수중 터널
 const TUNNEL_Z = -19;
@@ -288,8 +282,6 @@ function groundHeightAt(x,z){
   if (onA || onB) return 0;
   if (bridgeIntact){
     if (Math.abs(z) <= BRIDGE_HALF_WID && x >= -BRIDGE_HALF_LEN && x <= BRIDGE_HALF_LEN) return bridgeSagY(x);
-    // 오른쪽 작은 은신처 (다리와 같은 높이로 이어짐)
-    if (Math.abs(x) <= HIDEOUT_HALF_X && z > HIDEOUT_Z_MIN && z <= HIDEOUT_Z_MAX) return bridgeSagY(x);
   }
   return null; // 물/공중 (다리가 파괴된 구간 포함)
 }
@@ -300,13 +292,13 @@ function groundHeightAt(x,z){
 const WEAPONS = {
   rifle:   { name:'소총',   type:'hitscan', dmgUpper:100, dmgLower:70, rate:130, mag:30, reserve:90, spread:0.015, auto:true, hitRadius:0.95, bulletRadius:0.06 },
   pistol:  { name:'권총',   type:'hitscan', dmgUpper:70,  dmgLower:30, rate:260, mag:12, reserve:48, spread:0.01,  auto:false, hitRadius:0.95, bulletRadius:0.06 },
-  bandage: { name:'붕대',   type:'heal',    heal:100, cooldown:4000 },
+  katana:  { name:'카타나', type:'melee',   dmg:75, range:2.8, rate:420 },
   shotgun: { name:'샷건',   type:'hitscan', dmgUpper:150, dmgLower:100, pellets:8, rate:800, mag:6, reserve:18, spread:0.09, cost:100, hitRadius:1.3, bulletRadius:0.07 },
   grenade: { name:'수류탄', type:'grenade', dmgUpperContact:80, dmgLowerContact:70, dmgSplash:50, contactRadius:1.4, splashRadius:7, rate:900, cost:200, speed:22 },
   rpg:     { name:'RPG',    type:'rocket',  dmgUpperContact:200, dmgLowerContact:150, dmgSplash:100, contactRadius:1.7, splashRadius:9, rate:1400, cost:500, speed:38 }
 };
 const SHOP_ORDER = ['shotgun','grenade','rpg'];
-const WEAPON_CYCLE = ['rifle','pistol','shotgun','grenade','rpg'];
+const WEAPON_CYCLE = ['rifle','pistol','katana','shotgun','grenade','rpg'];
 const MATCH_SLOTS = ['bw-open-1','bw-open-2','bw-open-3','bw-open-4','bw-open-5'];
 
 // ---------- 상태 ----------
@@ -546,7 +538,7 @@ function startGame(m, diff){
   gameActive = true;
   initThree();
   spawnLocal();
-  if (mode==='ai') spawnBot();
+  if (mode==='ai') spawnTeamBattle();
   else spawnRemoteMesh();
   spawnCoinPickups();
   spawnAmmoPickups();
@@ -571,6 +563,7 @@ function exitToMenu(){
   bridgeGroup=null; bridgeIntact=true; tunnelGroup=null;
   remote.mesh=null; remote.weaponMesh=null; remote.currentWeaponMeshType=null;
   bot=null;
+  teamChars=[];
   viewmodel=null;
   aiming=false; sliding=false; curEyeH=EYE_H;
   mode=null;
@@ -601,8 +594,7 @@ function rebuildBridge(){
 function checkBridgeDestruction(pos){
   if (!bridgeIntact) return;
   const nearBridge = Math.abs(pos.z) <= BRIDGE_HALF_WID+2 && pos.x >= -BRIDGE_HALF_LEN-2 && pos.x <= BRIDGE_HALF_LEN+2;
-  const nearHideout = Math.abs(pos.x) <= HIDEOUT_HALF_X+2 && pos.z >= HIDEOUT_Z_MIN-1 && pos.z <= HIDEOUT_Z_MAX+2;
-  if (nearBridge || nearHideout){
+  if (nearBridge){
     destroyBridge(true);
   }
 }
@@ -623,9 +615,10 @@ function createWeaponMesh(type){
   } else if (type==='pistol'){
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.13,0.1), dark); g.add(body);
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.2,0.09), dark); grip.position.set(-0.11,-0.15,0); g.add(grip);
-  } else if (type==='knife'){
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.045,0.04), metal); blade.position.set(0.15,0,0); g.add(blade);
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.07,0.07), new THREE.MeshStandardMaterial({color:0x3a2a1a})); handle.position.set(-0.14,0,0); g.add(handle);
+  } else if (type==='katana'){
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.05,0.035), metal); blade.position.set(0.28,0.01,0); g.add(blade);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.14,0.09), new THREE.MeshStandardMaterial({color:0xd6a736})); guard.position.set(-0.05,0,0); g.add(guard);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.06,0.06), new THREE.MeshStandardMaterial({color:0x1a1a1a})); handle.position.set(-0.18,0,0); g.add(handle);
   } else if (type==='shotgun'){
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.95,8), dark); body.rotation.z=Math.PI/2; g.add(body);
     const pump = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.1,0.1), wood); pump.position.set(0.12,-0.08,0); g.add(pump);
@@ -637,11 +630,6 @@ function createWeaponMesh(type){
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1.3,10), dark); tube.rotation.z=Math.PI/2; g.add(tube);
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.2,0.08), wood); grip.position.set(-0.2,-0.18,0); g.add(grip);
     const sightTube = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.4,8), dark); sightTube.position.set(0.1,0.15,0); g.add(sightTube);
-  } else if (type==='bandage'){
-    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.22,12), new THREE.MeshStandardMaterial({color:0xffffff}));
-    roll.rotation.z=Math.PI/2; g.add(roll);
-    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.145,0.145,0.05,12), new THREE.MeshStandardMaterial({color:0xd6293e}));
-    stripe.rotation.z=Math.PI/2; g.add(stripe);
   } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.1,0.1), dark); g.add(body);
   }
@@ -667,7 +655,7 @@ function updateRemoteWeaponMesh(){
   if (remote.currentWeaponMeshType !== wtype){
     if (remote.weaponMesh) remote.mesh.remove(remote.weaponMesh);
     const wm = createWeaponMesh(wtype);
-    wm.position.set(0.42, 1.05, -0.15);
+    wm.position.set(0.42, 0.88, -0.12);
     wm.scale.setScalar(1.3);
     remote.mesh.add(wm);
     remote.weaponMesh = wm;
@@ -966,35 +954,6 @@ function buildBridge(){
   }
 
   // 오른쪽: 다리 중간에 붙은 작은 은신처 (덱 + 낮은 엄폐벽)
-  const hideoutSegCount = 8;
-  const hideoutSegW = (HIDEOUT_HALF_X*2)/hideoutSegCount;
-  const hideoutDepth = HIDEOUT_Z_MAX - HIDEOUT_Z_MIN;
-  for (let i=0;i<hideoutSegCount;i++){
-    const hx = -HIDEOUT_HALF_X + hideoutSegW*(i+0.5);
-    const hy = bridgeSagY(hx);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(hideoutSegW*0.96, 0.22, hideoutDepth), plankMat);
-    deck.position.set(hx, hy, (HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2);
-    deck.receiveShadow = true;
-    group.add(deck);
-  }
-  const wallMat = new THREE.MeshStandardMaterial({color:0x6b4a2a, roughness:0.9});
-  const hWallY = bridgeSagY(0)+0.65;
-  const backWall = new THREE.Mesh(new THREE.BoxGeometry(HIDEOUT_HALF_X*2*0.92, 1.2, 0.3), wallMat);
-  backWall.position.set(0, hWallY, HIDEOUT_Z_MAX-0.35);
-  group.add(backWall);
-  const sideWallL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, hideoutDepth*0.75), wallMat);
-  sideWallL.position.set(-HIDEOUT_HALF_X*0.82, hWallY, (HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2);
-  group.add(sideWallL);
-  const sideWallR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, hideoutDepth*0.75), wallMat);
-  sideWallR.position.set(HIDEOUT_HALF_X*0.82, hWallY, (HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2);
-  group.add(sideWallR);
-
-  // 은신처 장애물(엄폐/충돌) 등록 - 재건될 때마다 이전 것 제거 후 갱신
-  obstacles = obstacles.filter(o => !o.isHideout);
-  obstacles.push({x:0, z:HIDEOUT_Z_MAX-0.35, radius:HIDEOUT_HALF_X*0.95, height:2.0, isHideout:true});
-  obstacles.push({x:-HIDEOUT_HALF_X*0.82, z:(HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2, radius:0.5, height:2.0, isHideout:true});
-  obstacles.push({x:HIDEOUT_HALF_X*0.82, z:(HIDEOUT_Z_MIN+HIDEOUT_Z_MAX)/2, radius:0.5, height:2.0, isHideout:true});
-
   scene.add(group);
   bridgeGroup = group;
   bridgeIntact = true;
@@ -1009,14 +968,55 @@ function spawnLocal(){
   camera.position.set(local.x, local.y, local.z);
 }
 
-function spawnRemoteMesh(){
+// 육면체 몸통/팔다리 + 얼굴 있는 머리로 구성된 캐릭터 모델
+function createCharacterMesh(shirtColor){
   const grp = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,1.8,10),
-    new THREE.MeshStandardMaterial({color:0xff5555}));
-  body.position.y = 1; body.castShadow=true;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.35,10,10), new THREE.MeshStandardMaterial({color:0xffdbac}));
-  head.position.y = 1.9;
-  grp.add(body); grp.add(head);
+  const skin = new THREE.MeshStandardMaterial({color:0xffdbac});
+  const shirt = new THREE.MeshStandardMaterial({color:shirtColor});
+  const pants = new THREE.MeshStandardMaterial({color:0x33415c});
+
+  // 머리 (얼굴이 있는 부분 - 구)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34,12,12), skin);
+  head.position.y = 1.72;
+  head.castShadow = true;
+  grp.add(head);
+  const eyeMat = new THREE.MeshBasicMaterial({color:0x222222});
+  const eyeGeo = new THREE.SphereGeometry(0.045,6,6);
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.12,1.76,0.29); grp.add(eyeL);
+  const eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.12,1.76,0.29); grp.add(eyeR);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.035,0.05), new THREE.MeshBasicMaterial({color:0x8a4a3a}));
+  mouth.position.set(0,1.6,0.3); grp.add(mouth);
+
+  // 몸통 (육면체)
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.82,0.34), shirt);
+  torso.position.y = 1.12;
+  torso.castShadow = true;
+  grp.add(torso);
+
+  // 팔 (육면체, 좌우)
+  const arms = [];
+  for (const s of [-1,1]){
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.78,0.24), shirt);
+    arm.position.set(s*0.42, 1.12, 0);
+    arm.castShadow = true;
+    grp.add(arm);
+    arms.push(arm);
+  }
+
+  // 다리 (육면체, 좌우)
+  for (const s of [-1,1]){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.82,0.28), pants);
+    leg.position.set(s*0.15, 0.4, 0);
+    leg.castShadow = true;
+    grp.add(leg);
+  }
+
+  grp.userData.rightArm = arms[1];
+  return grp;
+}
+
+function spawnRemoteMesh(){
+  const grp = createCharacterMesh(0xd9484f);
   remote.mesh = grp;
   const spawnX = (mode==='client') ? ISLAND_A_X : ISLAND_B_X;
   grp.position.set(spawnX, 0, 0);
@@ -1025,10 +1025,32 @@ function spawnRemoteMesh(){
 }
 
 let bot = null;
-function spawnBot(){
-  spawnRemoteMesh();
-  bot = { hp:100, maxHp:100, alive:true, x:ISLAND_B_X, z:0, lastFire:0, lastGrenade:0, state:'advance', speed: difficulty==='easy'?2.6:(difficulty==='hard'?4.6:3.5), acc: difficulty==='easy'?0.35:(difficulty==='hard'?0.85:0.6) };
-  remote.hp = bot.hp; remote.maxHp=bot.maxHp;
+let teamChars = []; // AI 모드 3v3 팀원들 {team,hp,maxHp,alive,x,z,mesh,weaponMesh,currentWeaponMeshType,weapon,speed,acc,lastFire,lastGrenade,laneZ,spawnX,spawnZ}
+
+function makeTeamChar(team, spawnX, spawnZ, laneZ){
+  const color = team==='red' ? 0xd9484f : 0x3a7bd5;
+  const mesh = createCharacterMesh(color);
+  mesh.position.set(spawnX, 0, spawnZ);
+  scene.add(mesh);
+  return {
+    team, hp:100, maxHp:100, alive:true,
+    x:spawnX, z:spawnZ, mesh, weaponMesh:null, currentWeaponMeshType:null, weapon:'rifle',
+    speed: difficulty==='easy'?2.6:(difficulty==='hard'?4.4:3.4),
+    acc: difficulty==='easy'?0.3:(difficulty==='hard'?0.75:0.5),
+    lastFire:0, lastGrenade:0, laneZ, spawnX, spawnZ
+  };
+}
+
+function spawnTeamBattle(){
+  teamChars = [];
+  const lanes = [0, TUNNEL_Z];
+  // 빨간팀 AI 2명 (플레이어 포함 3명)
+  teamChars.push(makeTeamChar('red', ISLAND_A_X, -6, lanes[0]));
+  teamChars.push(makeTeamChar('red', ISLAND_A_X, 6, lanes[1]));
+  // 파란팀 AI 3명
+  teamChars.push(makeTeamChar('blue', ISLAND_B_X, -7, lanes[0]));
+  teamChars.push(makeTeamChar('blue', ISLAND_B_X, 0, lanes[0]));
+  teamChars.push(makeTeamChar('blue', ISLAND_B_X, 7, lanes[1]));
 }
 
 function randomIslandSpot(cx){
@@ -1131,7 +1153,7 @@ document.addEventListener('keydown', e=>{
   keys[e.code]=true;
   if (e.code==='Digit1') switchWeapon('rifle');
   if (e.code==='Digit2') switchWeapon('pistol');
-  if (e.code==='Digit3') useBandage();
+  if (e.code==='Digit3') switchWeapon('katana');
   if (e.code==='KeyE') tryPickupAmmo();
   if (e.code==='Digit4') switchWeapon('shotgun');
   if (e.code==='Digit5') switchWeapon('grenade');
@@ -1186,7 +1208,7 @@ document.addEventListener('pointerlockchange', ()=>{
 
 document.addEventListener('wheel', e=>{
   if (!pointerLocked || !local.alive) return;
-  const order = WEAPON_CYCLE.filter(k => k==='rifle' || k==='pistol' || local.owned[k]);
+  const order = WEAPON_CYCLE.filter(k => k==='rifle' || k==='pistol' || k==='katana' || local.owned[k]);
   let idx = order.indexOf(local.weapon);
   if (idx === -1) idx = 0;
   idx = (idx + (e.deltaY > 0 ? 1 : -1) + order.length) % order.length;
@@ -1202,22 +1224,6 @@ function switchWeapon(name){
   local.weapon = name;
   setViewmodel(name);
   updateWeaponUI();
-}
-
-function useBandage(){
-  if (!local.alive) return;
-  const now = performance.now();
-  if (local.hp >= local.maxHp){ addKillFeed('체력이 이미 가득 찼습니다'); return; }
-  if (now - local.lastBandage < WEAPONS.bandage.cooldown){
-    addKillFeed('붕대 재사용 대기중...');
-    return;
-  }
-  local.lastBandage = now;
-  local.hp = Math.min(local.maxHp, local.hp + WEAPONS.bandage.heal);
-  updateHUD();
-  addKillFeed(`붕대 사용 (+${WEAPONS.bandage.heal} HP)`);
-  setViewmodel('bandage');
-  setTimeout(()=>{ if (local.alive) setViewmodel(local.weapon); }, 700);
 }
 
 // ---------- 콘솔 / 치트 ----------
@@ -1319,19 +1325,20 @@ function getAimDir(){
 function doMelee(w){
   const dir = getAimDir();
   const origin = camera.position.clone();
-  const tbx = mode==='ai' ? remote.x : remote.mesh.position.x;
-  const tbz = mode==='ai' ? remote.z : remote.mesh.position.z;
-  const tGroundY = groundHeightAt(tbx, tbz) || 0;
-  const targetPos = new THREE.Vector3(tbx, tGroundY+1.2, tbz);
-  const toTarget = targetPos.clone().sub(origin);
-  const dist = toTarget.length();
-  if (dist <= w.range){
-    const angle = dir.angleTo(toTarget.normalize());
-    if (angle < 0.5){
-      hitOpponent(w.dmg, '칼');
+  let best = null, bestD = Infinity;
+  for (const t of getAllTargets('player')){
+    if (t.team === 'red') continue; // 아군은 베지 않음
+    const gY = groundHeightAt(t.x, t.z) || 0;
+    const targetPos = new THREE.Vector3(t.x, gY+1.2, t.z);
+    const toTarget = targetPos.clone().sub(origin);
+    const dist = toTarget.length();
+    if (dist <= w.range){
+      const angle = dir.angleTo(toTarget.normalize());
+      if (angle < 0.5 && dist < bestD){ bestD = dist; best = t; }
     }
   }
-  send({t:'fx', kind:'knife', x:origin.x,y:origin.y,z:origin.z});
+  if (best) applyDamageGeneric(best, w.dmg, '카타나', true);
+  send({t:'fx', kind:'katana', x:origin.x,y:origin.y,z:origin.z});
 }
 
 // 명중 지점의 y좌표를 대상이 서있는 바닥 높이 기준 상대값으로 환산해 상체/하체 판정
@@ -1343,38 +1350,27 @@ function doHitscan(w){
   const pellets = w.pellets || 1;
   const origin = camera.position.clone();
   const hitRadius = w.hitRadius || 0.95;
-  const targetBaseX = mode==='ai' ? remote.x : remote.mesh.position.x;
-  const targetBaseZ = mode==='ai' ? remote.z : remote.mesh.position.z;
-  const targetGroundY = groundHeightAt(targetBaseX, targetBaseZ) || 0;
-  const targetPos = new THREE.Vector3(targetBaseX, targetGroundY+1.1, targetBaseZ);
   const spread = aiming ? w.spread*0.3 : w.spread;
-  let hit=false, hitPart='lower';
+  let hitInfo = null;
   for (let i=0;i<pellets;i++){
     const dir = getAimDir();
     dir.x += (Math.random()-0.5)*spread;
     dir.y += (Math.random()-0.5)*spread;
     dir.z += (Math.random()-0.5)*spread;
     dir.normalize();
-    const obstacleDist = raycastObstacles(origin, dir, 200);
-    const toTarget = targetPos.clone().sub(origin);
-    const proj = toTarget.dot(dir);
-    if (proj>0 && proj<obstacleDist){
-      const closest = origin.clone().add(dir.clone().multiplyScalar(proj));
-      const d = closest.distanceTo(targetPos);
-      if (d < hitRadius){
-        hit = true;
-        hitPart = bodyPartFromY(closest.y, targetGroundY);
-        break; // 한 발당 한 번만 판정 (샷건도 명중 여부만, 데미지는 부위별 고정값)
-      }
+    const res = resolveShot(origin, dir, hitRadius, 'player');
+    if (res.hitInfo && res.hitInfo.target.team !== 'red'){
+      hitInfo = res.hitInfo;
+      break; // 한 발당 한 번만 판정 (샷건도 명중 여부만, 데미지는 부위별 고정값)
     }
   }
-  if (hit){
-    const dmg = hitPart==='upper' ? w.dmgUpper : w.dmgLower;
-    hitOpponent(dmg, w.name);
+  if (hitInfo){
+    const dmg = hitInfo.part==='upper' ? w.dmgUpper : w.dmgLower;
+    applyDamageGeneric(hitInfo.target, dmg, w.name, true);
   }
   const visualDir = getAimDir();
-  const visualDist = Math.min(60, raycastObstacles(origin, visualDir, 60));
-  spawnTracer(origin, visualDir, w.bulletRadius || 0.05, visualDist);
+  const visRes = resolveShot(origin, visualDir, hitRadius, 'player');
+  spawnTracer(origin, visualDir, w.bulletRadius || 0.05, visRes.travelDist);
   send({t:'fx', kind:'shot', x:origin.x,y:origin.y,z:origin.z, yaw, pitch});
 }
 
@@ -1452,13 +1448,14 @@ function updateProjectiles(dt){
       else if (gh!==null && p.mesh.position.y <= gh+0.3) explode=true;
       if (age > 3000) explode=true;
     }
-    // 상대 근접 판정 - 정확히 맞지 않아도 스플래시 범위 안에 들어오면 그 자리에서 폭발
+    // 상대 근접 판정 - 정확히 맞지 않아도 스플래시 범위 안에 들어오면 그 자리에서 폭발 (모든 적 캐릭터 대상)
     if (!explode && p.owner==='local'){
-      const tbx = mode==='ai' ? remote.x : remote.mesh.position.x;
-      const tbz = mode==='ai' ? remote.z : remote.mesh.position.z;
-      const tgY = groundHeightAt(tbx,tbz) || 0;
-      const targetPos = new THREE.Vector3(tbx, tgY+1.1, tbz);
-      if (p.mesh.position.distanceTo(targetPos) < WEAPONS[p.type].splashRadius) explode=true;
+      for (const t of getAllTargets('player')){
+        if (t.team === 'red') continue;
+        const tgY = groundHeightAt(t.x, t.z) || 0;
+        const targetPos = new THREE.Vector3(t.x, tgY+1.1, t.z);
+        if (p.mesh.position.distanceTo(targetPos) < WEAPONS[p.type].splashRadius){ explode=true; break; }
+      }
     }
 
     if (explode){
@@ -1472,39 +1469,8 @@ function updateProjectiles(dt){
 }
 
 function handleExplosion(pos, w){
-  spawnExplosionFX(pos);
   send({t:'fx', kind:'explosion', x:pos.x, y:pos.y, z:pos.z});
-  checkBridgeDestruction(pos);
-  const targetBaseX = mode==='ai' ? remote.x : remote.mesh.position.x;
-  const targetBaseZ = mode==='ai' ? remote.z : remote.mesh.position.z;
-  const targetGroundY = groundHeightAt(targetBaseX, targetBaseZ) || 0;
-  const targetPos = new THREE.Vector3(targetBaseX, targetGroundY+1.1, targetBaseZ);
-  const d = pos.distanceTo(targetPos);
-  let dmg = 0;
-  if (d < w.contactRadius){
-    const part = bodyPartFromY(pos.y, targetGroundY);
-    dmg = part==='upper' ? w.dmgUpperContact : w.dmgLowerContact;
-  } else if (d < w.splashRadius){
-    dmg = w.dmgSplash; // 빗맞아도 근처면 스플래시 데미지
-  }
-  if (dmg>0) hitOpponent(Math.round(dmg), w.name);
-}
-
-// 봇(AI)이 던진 폭발물이 '나'에게 주는 데미지 계산
-function botExplosionDamage(pos, w){
-  spawnExplosionFX(pos);
-  checkBridgeDestruction(pos);
-  const groundY = groundHeightAt(local.x, local.z) || 0;
-  const targetPos = new THREE.Vector3(local.x, groundY+1.1, local.z);
-  const d = pos.distanceTo(targetPos);
-  let dmg = 0;
-  if (d < w.contactRadius){
-    const part = bodyPartFromY(pos.y, groundY);
-    dmg = part==='upper' ? w.dmgUpperContact : w.dmgLowerContact;
-  } else if (d < w.splashRadius){
-    dmg = w.dmgSplash;
-  }
-  if (dmg>0) applyDamageLocal(Math.round(dmg), '적 ' + w.name);
+  resolveExplosion(pos, w, 'red', 'player', true);
 }
 
 function spawnExplosionFX(pos){
@@ -1526,30 +1492,11 @@ function spawnRemoteFX(data){
 }
 
 // ---------- 피해 처리 ----------
-function hitOpponent(dmg, srcName){
-  if (mode==='ai'){
-    if (!bot.alive) return;
-    bot.hp -= dmg;
-    if (bot.hp <= 0){ bot.hp=0; bot.alive=false; onBotDeath(); }
-    remote.hp = bot.hp;
-  } else {
-    send({t:'hit', dmg, by:srcName});
-  }
-}
 function applyDamageLocal(dmg, by){
   if (!local.alive) return;
   local.hp -= dmg;
   updateHUD();
   if (local.hp<=0){ local.hp=0; onLocalDeath(); }
-}
-function onBotDeath(){
-  addKillFeed('상대를 처치했습니다! +30 코인');
-  local.coins += 30; saveProfile(); updateHUD(); buildShop();
-  setTimeout(()=>{
-    bot.alive=true; bot.hp=100; bot.x=ISLAND_B_X; bot.z=0;
-    remote.hp=100; remote.x=bot.x; remote.z=bot.z;
-    if (remote.mesh) remote.mesh.position.set(bot.x,0,bot.z);
-  }, 3000);
 }
 function onLocalDeath(){
   local.alive=false;
@@ -1622,7 +1569,7 @@ function updateWeaponUI(){
   else if (w.type==='melee') document.getElementById('ammoText').textContent = '근접무기';
   else if (w.type==='grenade' || w.type==='rocket') document.getElementById('ammoText').textContent = '투척/발사';
   document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active'));
-  const map = {rifle:1,pistol:2,bandage:3,shotgun:4,grenade:5,rpg:6};
+  const map = {rifle:1,pistol:2,katana:3,shotgun:4,grenade:5,rpg:6};
   const activeSlot = document.querySelector(`.slot[data-slot="${map[local.weapon]}"]`);
   if (activeSlot) activeSlot.classList.add('active');
   document.querySelector('.slot[data-slot="4"]').classList.toggle('locked', !local.owned.shotgun);
@@ -1730,62 +1677,213 @@ function updateCoins(dt){
 }
 
 // ---------- 봇 AI ----------
-function updateBot(dt){
-  if (!bot) return;
-  if (!bot.alive){
-    remote.mesh.position.set(bot.x, 0, bot.z);
-    return;
-  }
-  const px = local.x, pz = local.z;
-  const dist = Math.hypot(px-bot.x, pz-bot.z);
-
-  // 목표 지점: 다리 중앙 쪽으로 전진하거나 플레이어 추적
-  let tx = bot.x, tz = bot.z;
-  if (dist > 14){
-    tx = 0; tz = (Math.random()-0.5)*2; // 다리로 전진
+// ---------- 팀 전투(3v3) 공용 헬퍼 ----------
+// excludeRef: 'player' 이면 플레이어 자신을 제외, 봇 객체면 그 봇 자신을 제외
+function getAllTargets(excludeRef){
+  const list = [];
+  if (mode === 'ai'){
+    if (local.alive && excludeRef !== 'player') list.push({team:'red', isPlayer:true, x:local.x, z:local.z});
+    for (const c of teamChars){
+      if (c.alive && c !== excludeRef) list.push({team:c.team, isPlayer:false, ref:c, x:c.x, z:c.z});
+    }
   } else {
-    tx = px + (Math.random()-0.5)*3; tz = pz + (Math.random()-0.5)*3;
+    if (remote.mesh && remote.alive) list.push({team:'enemy', isPlayer:false, ref:remote, x:remote.mesh.position.x, z:remote.mesh.position.z});
   }
-  const dx = tx-bot.x, dz = tz-bot.z;
-  const dlen = Math.hypot(dx,dz)||1;
-  const nx = bot.x + (dx/dlen)*bot.speed*dt;
-  const nz = bot.z + (dz/dlen)*bot.speed*dt;
-  if (groundHeightAt(nx,nz)!==null){ bot.x=nx; bot.z=nz; }
+  return list;
+}
 
-  const botGroundY = groundHeightAt(bot.x, bot.z) || 0;
-  remote.mesh.position.set(bot.x, botGroundY, bot.z);
-  const faceAngle = Math.atan2(px-bot.x, pz-bot.z);
-  remote.mesh.rotation.y = faceAngle;
-
-  const now = performance.now();
-  if (dist < 40 && now - bot.lastFire > 350){
-    bot.lastFire = now;
-    if (Math.random() < bot.acc){
-      applyDamageLocal(Math.round(8+Math.random()*10), '적');
+// 광선(origin,dir) 위에서 장애물과 모든 캐릭터를 통틀어 가장 먼저 맞는 대상을 찾음 (캐릭터도 총알을 막음)
+function resolveShot(origin, dir, hitRadius, excludeRef){
+  const obstacleDist = raycastObstacles(origin, dir, 200);
+  let closestT = obstacleDist;
+  let hitInfo = null;
+  for (const t of getAllTargets(excludeRef)){
+    const gY = groundHeightAt(t.x, t.z) || 0;
+    const tp = new THREE.Vector3(t.x, gY+1.1, t.z);
+    const toT = tp.clone().sub(origin);
+    const proj = toT.dot(dir);
+    if (proj<=0 || proj>=closestT) continue;
+    const closest = origin.clone().add(dir.clone().multiplyScalar(proj));
+    const d = closest.distanceTo(tp);
+    if (d < hitRadius){
+      closestT = proj;
+      hitInfo = { target:t, part: bodyPartFromY(closest.y, gY) };
     }
   }
-  if (dist < 20 && now - bot.lastGrenade > 8000 && Math.random()<0.5){
-    bot.lastGrenade = now;
-    botExplosionDamage(new THREE.Vector3(px + (Math.random()-0.5)*3, 1.1, pz+(Math.random()-0.5)*3), WEAPONS.grenade);
+  return { hitInfo, travelDist: Math.min(closestT, 60) };
+}
+
+function applyDamageGeneric(target, dmg, name, byPlayer){
+  if (target.isPlayer){ applyDamageLocal(dmg, name); return; }
+  if (mode === 'ai'){
+    const b = target.ref;
+    b.hp -= dmg;
+    if (b.hp <= 0){ b.hp = 0; b.alive = false; onTeamCharDeath(b, !!byPlayer); }
+  } else {
+    send({t:'hit', dmg, by:name});
+  }
+}
+
+function onTeamCharDeath(b, byPlayer){
+  addKillFeed(`${b.team==='red'?'🔴빨간팀':'🔵파란팀'} 전사${byPlayer?' (플레이어 처치!)':''}`);
+  if (byPlayer){ local.coins += 20; saveProfile(); }
+  if (b.mesh) b.mesh.visible = false;
+  setTimeout(()=>{
+    b.alive = true; b.hp = b.maxHp; b.x = b.spawnX; b.z = b.spawnZ;
+    if (b.mesh){ b.mesh.position.set(b.x, 0, b.z); b.mesh.visible = true; }
+  }, 5000);
+}
+
+// 폭발(수류탄/RPG) - shooterTeam과 다른 팀에게만 데미지, 여러 명이 동시에 맞을 수 있음
+function resolveExplosion(pos, w, shooterTeam, excludeRef, byPlayer){
+  spawnExplosionFX(pos);
+  checkBridgeDestruction(pos);
+  for (const t of getAllTargets(excludeRef)){
+    if (t.team === shooterTeam) continue;
+    const gY = groundHeightAt(t.x, t.z) || 0;
+    const tp = new THREE.Vector3(t.x, gY+1.1, t.z);
+    const d = pos.distanceTo(tp);
+    let dmg = 0;
+    if (d < w.contactRadius){
+      const part = bodyPartFromY(pos.y, gY);
+      dmg = part==='upper' ? w.dmgUpperContact : w.dmgLowerContact;
+    } else if (d < w.splashRadius){
+      dmg = w.dmgSplash;
+    }
+    if (dmg>0) applyDamageGeneric(t, Math.round(dmg), w.name, byPlayer);
+  }
+}
+
+function botAttemptShot(bot){
+  const now = performance.now();
+  if (now - bot.lastFire < 380) return;
+  const targets = getAllTargets(bot).filter(t=>t.team!==bot.team);
+  if (!targets.length) return;
+  let nearest=null, nearestD=Infinity;
+  for (const t of targets){ const d=Math.hypot(t.x-bot.x, t.z-bot.z); if (d<nearestD){ nearestD=d; nearest=t; } }
+  if (!nearest || nearestD > 42) return;
+  const gY = groundHeightAt(bot.x, bot.z) || 0;
+  const origin = new THREE.Vector3(bot.x, gY+1.5, bot.z);
+  const tgY = groundHeightAt(nearest.x, nearest.z) || 0;
+  const targetPos = new THREE.Vector3(nearest.x, tgY+1.1, nearest.z);
+  const dir = targetPos.clone().sub(origin).normalize();
+  bot.lastFire = now;
+  const res = resolveShot(origin, dir, 0.95, bot);
+  spawnTracer(origin, dir, 0.05, res.travelDist);
+  if (res.hitInfo && res.hitInfo.target.team !== bot.team && Math.random() < bot.acc){
+    const dmg = res.hitInfo.part==='upper' ? 20 : 13;
+    applyDamageGeneric(res.hitInfo.target, dmg, '적 소총', false);
+  }
+}
+
+function botAttemptGrenade(bot){
+  const now = performance.now();
+  if (now - (bot.lastGrenade||0) < 9000) return;
+  const targets = getAllTargets(bot).filter(t=>t.team!==bot.team);
+  if (!targets.length) return;
+  let nearest=null, nearestD=Infinity;
+  for (const t of targets){ const d=Math.hypot(t.x-bot.x, t.z-bot.z); if (d<nearestD){ nearestD=d; nearest=t; } }
+  if (!nearest || nearestD > 18 || Math.random() > 0.35) return;
+  bot.lastGrenade = now;
+  const pos = new THREE.Vector3(nearest.x + (Math.random()-0.5)*3, 1.1, nearest.z + (Math.random()-0.5)*3);
+  resolveExplosion(pos, WEAPONS.grenade, bot.team, bot, false);
+}
+
+function updateTeamChar(bot, dt){
+  if (!bot.alive){
+    if (bot.mesh) bot.mesh.visible = false;
+    return;
+  }
+  if (bot.mesh) bot.mesh.visible = true;
+
+  const targets = getAllTargets(bot).filter(t=>t.team!==bot.team);
+  let nearest=null, nearestD=Infinity;
+  for (const t of targets){ const d=Math.hypot(t.x-bot.x, t.z-bot.z); if (d<nearestD){ nearestD=d; nearest=t; } }
+
+  let tx, tz;
+  if (nearest && nearestD < 16){
+    tx = nearest.x; tz = nearest.z;
+  } else {
+    tx = 0; tz = bot.laneZ + (Math.random()-0.5)*2;
+  }
+  const dx = tx-bot.x, dz = tz-bot.z;
+  const dlen = Math.hypot(dx,dz) || 1;
+  const nx = bot.x + (dx/dlen)*bot.speed*dt;
+  const nz = bot.z + (dz/dlen)*bot.speed*dt;
+  if (groundHeightAt(nx,nz)!==null && !isBlockedByObstacle(nx,nz)){ bot.x=nx; bot.z=nz; }
+  else if (groundHeightAt(nx,bot.z)!==null && !isBlockedByObstacle(nx,bot.z)){ bot.x=nx; }
+  else if (groundHeightAt(bot.x,nz)!==null && !isBlockedByObstacle(bot.x,nz)){ bot.z=nz; }
+
+  const gY = groundHeightAt(bot.x, bot.z);
+  if (bot.mesh) bot.mesh.position.set(bot.x, gY===null?0:gY, bot.z);
+  if (nearest && bot.mesh){
+    bot.mesh.rotation.y = Math.atan2(nearest.x-bot.x, nearest.z-bot.z);
+  }
+
+  botAttemptShot(bot);
+  botAttemptGrenade(bot);
+}
+
+function updateTeamBattle(dt){
+  for (const c of teamChars) updateTeamChar(c, dt);
+}
+
+function updateTeamWeaponMeshes(){
+  for (const c of teamChars){
+    if (!c.mesh) continue;
+    const wtype = c.weapon || 'rifle';
+    if (c.currentWeaponMeshType !== wtype){
+      if (c.weaponMesh) c.mesh.remove(c.weaponMesh);
+      const wm = createWeaponMesh(wtype);
+      wm.position.set(0.42, 0.88, -0.12);
+      wm.scale.setScalar(1.3);
+      c.mesh.add(wm);
+      c.weaponMesh = wm;
+      c.currentWeaponMeshType = wtype;
+    }
   }
 }
 
 // ---------- 적 체력바 / 닉네임 태그 ----------
 function updateEnemyHUD(){
-  const hp = mode==='ai' ? (bot ? bot.hp : 0) : remote.hp;
-  const pct = Math.max(0, hp/(remote.maxHp||100)*100);
   const bar = document.getElementById('enemyHealthBar');
-  if (bar) bar.style.width = pct+'%';
   const label = document.getElementById('enemyNameLabel');
-  if (label){
-    const name = mode==='ai' ? 'AI' : (remote.nickname||'상대');
-    label.textContent = `${name} - ${Math.max(0,Math.round(hp))} HP`;
+  if (mode === 'ai'){
+    const redAlive = (local.alive?1:0) + teamChars.filter(c=>c.team==='red' && c.alive).length;
+    const blueChars = teamChars.filter(c=>c.team==='blue');
+    const blueAlive = blueChars.filter(c=>c.alive).length;
+    const blueHpPct = blueChars.length ? Math.max(0, blueChars.reduce((s,c)=>s+c.hp,0) / (blueChars.length*100) * 100) : 0;
+    if (bar) bar.style.width = blueHpPct + '%';
+    if (label) label.textContent = `🔴빨간팀 생존 ${redAlive}/3 · 🔵파란팀 생존 ${blueAlive}/3`;
+  } else {
+    const pct = Math.max(0, remote.hp/(remote.maxHp||100)*100);
+    if (bar) bar.style.width = pct+'%';
+    if (label) label.textContent = `${remote.nickname||'상대'} - ${Math.max(0,Math.round(remote.hp))} HP`;
   }
 }
 
 function updateNameTag(){
   const tag = document.getElementById('enemyNameTag');
-  if (!tag || !remote.mesh) return;
+  if (!tag) return;
+  if (mode === 'ai'){
+    let nearest=null, nearestD=Infinity;
+    for (const c of teamChars){
+      if (c.team!=='blue' || !c.alive || !c.mesh) continue;
+      const d = Math.hypot(c.x-local.x, c.z-local.z);
+      if (d<nearestD){ nearestD=d; nearest=c; }
+    }
+    if (!nearest || nearestD>50){ tag.style.display='none'; return; }
+    const headPos = nearest.mesh.position.clone(); headPos.y += 2.2;
+    const proj = headPos.clone().project(camera);
+    if (proj.z>1 || proj.z<-1){ tag.style.display='none'; return; }
+    tag.style.display='block';
+    tag.style.left = ((proj.x*0.5+0.5)*innerWidth)+'px';
+    tag.style.top = ((-proj.y*0.5+0.5)*innerHeight)+'px';
+    const pct = Math.max(0, Math.min(100, nearest.hp/nearest.maxHp*100));
+    tag.innerHTML = `<div class="nm">파란팀 AI (${Math.max(0,Math.round(nearest.hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
+    return;
+  }
+  if (!remote.mesh){ tag.style.display='none'; return; }
   const headPos = remote.mesh.position.clone();
   headPos.y += 2.4;
   const proj = headPos.clone().project(camera);
@@ -1793,10 +1891,9 @@ function updateNameTag(){
   tag.style.display='block';
   tag.style.left = ((proj.x*0.5+0.5)*innerWidth) + 'px';
   tag.style.top = ((-proj.y*0.5+0.5)*innerHeight) + 'px';
-  const name = mode==='ai' ? 'AI' : (remote.nickname||'상대');
-  const hp = mode==='ai' ? (bot ? bot.hp : 0) : remote.hp;
-  const pct = Math.max(0, Math.min(100, hp/(remote.maxHp||100)*100));
-  tag.innerHTML = `<div class="nm">${name} (${Math.max(0,Math.round(hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
+  const name = remote.nickname||'상대';
+  const pct = Math.max(0, Math.min(100, remote.hp/(remote.maxHp||100)*100));
+  tag.innerHTML = `<div class="nm">${name} (${Math.max(0,Math.round(remote.hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
 }
 
 // ---------- 원격 플레이어(멀티) 보간 ----------
@@ -1833,10 +1930,9 @@ function animate(){
   updateProjectiles(dt);
   updateCoins(dt);
   updateAmmoPickups(dt);
-  if (mode==='ai') updateBot(dt); else { updateRemoteInterp(dt); sendState(); }
+  if (mode==='ai') { updateTeamBattle(dt); updateTeamWeaponMeshes(); } else { updateRemoteInterp(dt); sendState(); updateRemoteWeaponMesh(); }
   updateEnemyHUD();
   updateNameTag();
-  updateRemoteWeaponMesh();
 
   const targetFov = aiming ? 42 : 75;
   currentFov += (targetFov - currentFov) * Math.min(1, dt*10);
