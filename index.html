@@ -52,10 +52,14 @@
   .slot { position:relative; width:40px; height:40px; background:#0007; border:1px solid #fff5; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#8899aa; }
   .slot.active { border-color:#ffd166; }
   .slot.active svg { filter:drop-shadow(0 0 3px #ffd166); }
-  .slot.locked { opacity:.3; }
+  .slot.locked { display:none; }
   .slot svg { width:26px; height:26px; }
   .slot .num { position:absolute; top:1px; left:3px; font-size:9px; font-weight:900; color:#cde; text-shadow:0 0 3px #000; }
   .slot.active .num { color:#ffd166; }
+  .bandageSlot { cursor:pointer; pointer-events:auto; padding:3px; }
+  .bandageSlot.locked { cursor:default; }
+  .bandageIcon { width:100%; height:100%; background:#fff; border-radius:4px; position:relative; }
+  .bandageIcon::after { content:''; position:absolute; left:0; right:0; top:50%; height:6px; transform:translateY(-50%); background:#d6293e; }
 
   #shop { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#0e1b28ee; border:2px solid #2a4d6e; border-radius:14px; padding:24px; z-index:60; display:none; color:#fff; width:420px; pointer-events:auto; max-height:85vh; overflow-y:auto; }
   #shop.show { display:block; }
@@ -172,7 +176,7 @@
     <div id="enemyNameLabel">상대</div>
     <div id="enemyHealthBarBg"><div id="enemyHealthBar"></div></div>
   </div>
-  <div id="hint">WASD 이동 · SHIFT 달리기 · CTRL 앉기(+W 슬라이딩) · Z 엎드리기 · 스페이스 점프 · 좌클릭 공격 · 우클릭 조준 · 휠 무기 변경 · R 재장전 · E 탄약 줍기 · Enter 콘솔</div>
+  <div id="hint">WASD 이동 · SHIFT 달리기 · CTRL 앉기(+W 슬라이딩) · Z 엎드리기 · 스페이스 점프 · 좌클릭 공격 · 우클릭 조준 · 휠 무기 변경 · R 재장전 · E 탄약 줍기/문 열기 · B 붕대 · Enter 콘솔</div>
 </div>
 <div id="enemyNameTag"></div>
 
@@ -236,6 +240,9 @@ let bridgeIntact = true;
 let bridgeGroup = null;
 let tunnelGroup = null;
 let obstacles = []; // {x,z,radius} - 나무/엄폐물 등 충돌 가능한 장애물
+let foxholeDoors = []; // 은신처 문 상태
+let foxholeBeds = []; // 은신처 침대 상태
+let lyingDown = false;
 
 function isBlockedByObstacle(x,z){
   const PLAYER_R = 0.4;
@@ -293,11 +300,90 @@ const WEAPONS = {
   rifle:   { name:'소총',   type:'hitscan', dmgUpper:100, dmgLower:70, rate:130, mag:30, reserve:90, spread:0.015, auto:true, hitRadius:0.95, bulletRadius:0.06 },
   pistol:  { name:'권총',   type:'hitscan', dmgUpper:70,  dmgLower:30, rate:260, mag:12, reserve:48, spread:0.01,  auto:false, hitRadius:0.95, bulletRadius:0.06 },
   katana:  { name:'카타나', type:'melee',   dmg:75, range:2.8, rate:420 },
+  bandage: { name:'붕대',   type:'heal',    heal:100, cooldown:3000 },
   shotgun: { name:'샷건',   type:'hitscan', dmgUpper:150, dmgLower:100, pellets:8, rate:800, mag:6, reserve:18, spread:0.09, cost:100, hitRadius:1.3, bulletRadius:0.07 },
   grenade: { name:'수류탄', type:'grenade', dmgUpperContact:80, dmgLowerContact:70, dmgSplash:50, contactRadius:1.4, splashRadius:7, rate:900, cost:200, speed:22 },
   rpg:     { name:'RPG',    type:'rocket',  dmgUpperContact:200, dmgLowerContact:150, dmgSplash:100, contactRadius:1.7, splashRadius:9, rate:1400, cost:500, speed:38 }
 };
-const SHOP_ORDER = ['shotgun','grenade','rpg'];
+const SHOP_ORDER = ['shotgun','grenade'];
+
+// ---------- 직업(클래스) 시스템 ----------
+const CLASS_DEFS = {
+  runner: { name:'러너', cost:10,
+    desc1:'Lv1: SHIFT 달리기 1.5배 빠름 (달리기 100번 사용시 레벨업)',
+    desc2:'Lv2: 팀원도 달리기가 빨라짐 (팀원과 함께 10번 달리기시 레벨업)',
+    desc3:'Lv3: 달리기가 1.5배 더 빨라짐' },
+  doctor: { name:'의사', cost:50,
+    desc1:'Lv1: 붕대 1개를 가지고 시작 (붕대 10번 사용시 레벨업)',
+    desc2:'Lv2: 붕대 사용시 팀원도 회복 (붕대 20번 더 사용시 레벨업)',
+    desc3:'Lv3: 붕대 무한 사용' },
+  bomber: { name:'폭탄마', cost:1000,
+    desc1:'Lv1: RPG를 가지고 시작 (RPG 50번 사용시 레벨업)',
+    desc2:'Lv2: RPG+수류탄을 가지고 시작 (RPG+수류탄 100번 더 사용시 레벨업)',
+    desc3:'Lv3: 팀원도 RPG를 가짐 (수류탄 제외)' }
+};
+const CLASS_LEVEL_RULES = {
+  runner: [ {level:2, counter:'runs', threshold:100}, {level:3, counter:'teamRuns', threshold:10} ],
+  doctor: [ {level:2, counter:'uses', threshold:10}, {level:3, counter:'uses', threshold:30} ],
+  bomber: [ {level:2, counter:'rpgUses', threshold:50}, {level:3, counter:'heavyUses', threshold:100} ]
+};
+
+function checkClassLevelUp(key){
+  const c = profile.classes[key];
+  if (!c || !c.owned) return;
+  for (const r of CLASS_LEVEL_RULES[key]){
+    if (c.level < r.level && (c[r.counter]||0) >= r.threshold){
+      c.level = r.level;
+      addKillFeed(`🎖 ${CLASS_DEFS[key].name} 레벨 ${r.level} 달성!`);
+    }
+  }
+}
+
+function buyClass(key){
+  const c = profile.classes[key];
+  const def = CLASS_DEFS[key];
+  if (!c || c.owned || local.coins < def.cost) return;
+  local.coins -= def.cost;
+  c.owned = true;
+  c.level = 1;
+  saveProfile();
+  buildShop(); updateHUD();
+}
+
+function registerRunEvent(){
+  if (mode!=='ai' || !local.alive) return;
+  const rc = profile.classes.runner;
+  if (!rc.owned) return;
+  rc.runs = (rc.runs||0)+1;
+  const nearbyTeammate = teamChars.some(c=>c.team==='red' && c.alive && Math.hypot(c.x-local.x,c.z-local.z)<15);
+  if (nearbyTeammate) rc.teamRuns = (rc.teamRuns||0)+1;
+  checkClassLevelUp('runner');
+  saveProfile();
+}
+
+function registerWeaponUse(type){
+  if (mode!=='ai' || !local.alive) return;
+  const bc = profile.classes.bomber;
+  if (!bc.owned || (type!=='rpg' && type!=='grenade')) return;
+  if (type==='rpg') bc.rpgUses = (bc.rpgUses||0)+1;
+  bc.heavyUses = (bc.heavyUses||0)+1;
+  checkClassLevelUp('bomber');
+  saveProfile();
+}
+
+function getRunnerSpeedMul(){
+  const rc = profile.classes.runner;
+  if (!rc.owned || rc.level<1) return 1;
+  return rc.level>=3 ? 1.5*1.5 : 1.5;
+}
+
+// 현재 프로필 기준으로 매치 시작 시 직업 효과 적용 (붕대/RPG/수류탄 시작 지급)
+function applyClassEffects(){
+  const dc = profile.classes.doctor, bc = profile.classes.bomber;
+  local.bandageCharges = dc.owned ? (dc.level>=3 ? Infinity : 1) : 0;
+  if (bc.owned && bc.level>=1) local.owned.rpg = true;
+  if (bc.owned && bc.level>=2) local.owned.grenade = true;
+}
 const WEAPON_CYCLE = ['rifle','pistol','katana','shotgun','grenade','rpg'];
 const MATCH_SLOTS = ['bw-open-1','bw-open-2','bw-open-3','bw-open-4','bw-open-5'];
 
@@ -323,28 +409,41 @@ let curEyeH = EYE_H;
 
 // ---------- 진행 상황 저장 (코인 / 보유 무기) ----------
 const PROFILE_KEY = 'bridgeWarProfile_v1';
+function defaultClasses(){
+  return {
+    runner: { owned:false, level:0, runs:0, teamRuns:0 },
+    doctor: { owned:false, level:0, uses:0 },
+    bomber: { owned:false, level:0, rpgUses:0, heavyUses:0 }
+  };
+}
 function loadProfile(){
   try{
     const raw = localStorage.getItem(PROFILE_KEY);
     if (raw){
       const p = JSON.parse(raw);
+      const dc = defaultClasses();
+      const pc = p.classes || {};
+      for (const k of Object.keys(dc)){
+        Object.assign(dc[k], pc[k] || {});
+      }
       return {
         coins: typeof p.coins==='number' ? p.coins : 0,
         owned: {
           shotgun: !!(p.owned && p.owned.shotgun),
-          grenade: !!(p.owned && p.owned.grenade),
-          rpg: !!(p.owned && p.owned.rpg)
-        }
+          grenade: !!(p.owned && p.owned.grenade)
+        },
+        classes: dc
       };
     }
   }catch(e){}
-  return { coins:0, owned:{shotgun:false, grenade:false, rpg:false} };
+  return { coins:0, owned:{shotgun:false, grenade:false}, classes: defaultClasses() };
 }
 function saveProfile(){
   try{
     localStorage.setItem(PROFILE_KEY, JSON.stringify({
       coins: local.coins,
-      owned: { shotgun: local.owned.shotgun, grenade: local.owned.grenade, rpg: local.owned.rpg }
+      owned: { shotgun: local.owned.shotgun, grenade: local.owned.grenade },
+      classes: profile.classes
     }));
   }catch(e){}
   updateHomeCoinDisplay();
@@ -358,7 +457,8 @@ let profile = loadProfile();
 let local = {
   x:0, y:EYE_H, z:0, hp:100, maxHp:100, coins:profile.coins, alive:true, nickname:'플레이어',
   weapon:'rifle', ammo:{rifle:30,pistol:12,shotgun:6}, reserve:{rifle:90,pistol:48,shotgun:18},
-  owned:{rifle:true,pistol:true,shotgun:profile.owned.shotgun,grenade:profile.owned.grenade,rpg:profile.owned.rpg},
+  owned:{rifle:true,pistol:true,shotgun:profile.owned.shotgun,grenade:profile.owned.grenade,rpg:false},
+  bandageCharges:0,
   lastFire:0, lastKnife:0, lastBandage:0, reloading:false
 };
 let remote = {
@@ -368,6 +468,7 @@ let projectiles = []; // {mesh, vel, type, born, bounces}
 let coinPickups = [];
 let ammoPickups = [];
 let explosionFX = [];
+
 updateHomeCoinDisplay();
 
 // ---------- 메뉴 로직 ----------
@@ -531,6 +632,7 @@ function startGame(m, diff){
   }
   mode = m; if (diff) difficulty = diff;
   if (!conn) local.nickname = getNickname();
+  applyClassEffects();
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('show'));
   document.getElementById('shop').classList.remove('show');
   document.getElementById('menu').style.display='none';
@@ -560,6 +662,7 @@ function exitToMenu(){
   scene=null; camera=null; renderer=null;
   projectiles=[]; coinPickups=[]; obstacles=[]; explosionFX=[];
   clearAmmoPickups();
+  clearFoxholeDoors();
   bridgeGroup=null; bridgeIntact=true; tunnelGroup=null;
   remote.mesh=null; remote.weaponMesh=null; remote.currentWeaponMeshType=null;
   bot=null;
@@ -619,6 +722,11 @@ function createWeaponMesh(type){
     const blade = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.05,0.035), metal); blade.position.set(0.28,0.01,0); g.add(blade);
     const guard = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.14,0.09), new THREE.MeshStandardMaterial({color:0xd6a736})); guard.position.set(-0.05,0,0); g.add(guard);
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.06,0.06), new THREE.MeshStandardMaterial({color:0x1a1a1a})); handle.position.set(-0.18,0,0); g.add(handle);
+  } else if (type==='bandage'){
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.14,0.22,12), new THREE.MeshStandardMaterial({color:0xffffff}));
+    roll.rotation.z=Math.PI/2; g.add(roll);
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.145,0.145,0.05,12), new THREE.MeshStandardMaterial({color:0xd6293e}));
+    stripe.rotation.z=Math.PI/2; g.add(stripe);
   } else if (type==='shotgun'){
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.95,8), dark); body.rotation.z=Math.PI/2; g.add(body);
     const pump = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.1,0.1), wood); pump.position.set(0.12,-0.08,0); g.add(pump);
@@ -704,6 +812,8 @@ function initThree(){
   scene.add(water);
 
   obstacles = [];
+  foxholeDoors = [];
+  foxholeBeds = [];
   buildIsland(ISLAND_A_X, 0xff6b6b);
   buildIsland(ISLAND_B_X, 0x4d96ff);
   buildBridge();
@@ -801,14 +911,14 @@ function buildFoxhole(cx, facingSign, z){
   // 뒷벽 (입구 반대쪽)
   const back = new THREE.Mesh(new THREE.BoxGeometry(wallT, roomH, width), dirtMat);
   back.position.set(backX, roomH/2, z);
-  back.castShadow = true; back.receiveShadow = true;
+  back.castShadow = false; back.receiveShadow = true;
   scene.add(back);
 
   // 좌우 흙벽
   for (const s of [-1,1]){
     const side = new THREE.Mesh(new THREE.BoxGeometry(depth, roomH, wallT), dirtMat);
     side.position.set(midX, roomH/2, z + s*hw);
-    side.castShadow = true; side.receiveShadow = true;
+    side.castShadow = false; side.receiveShadow = true;
     scene.add(side);
     obstacles.push({x:side.position.x, z:side.position.z, radius:0.55, height:roomH+0.3});
   }
@@ -816,7 +926,7 @@ function buildFoxhole(cx, facingSign, z){
   // 천장 (흙 + 잔디 지붕, 밖에서 보면 작은 언덕처럼 보임)
   const roofDirt = new THREE.Mesh(new THREE.BoxGeometry(depth+wallT, 0.5, width+wallT*2), dirtMat);
   roofDirt.position.set(midX, roomH+0.25, z);
-  roofDirt.castShadow = true; roofDirt.receiveShadow = true;
+  roofDirt.castShadow = false; roofDirt.receiveShadow = true;
   scene.add(roofDirt);
   const roofGrass = new THREE.Mesh(new THREE.BoxGeometry(depth+wallT+0.5, 0.35, width+wallT*2+0.5), grassMat);
   roofGrass.position.set(midX, roomH+0.5+0.175, z);
@@ -826,12 +936,57 @@ function buildFoxhole(cx, facingSign, z){
   // 뒷벽 충돌 (입구 쪽은 열어둠)
   obstacles.push({x:backX, z:z, radius:width*0.42, height:roomH+0.3});
 
-  // 내부 장식 (작은 돌/모래주머니)
-  for (let i=0;i<3;i++){
-    const bag = new THREE.Mesh(new THREE.SphereGeometry(0.3,8,6), new THREE.MeshStandardMaterial({color:0x6a5a42}));
-    bag.position.set(backX + facingSign*0.5, 0.25, z + (i-1)*1.1);
-    bag.scale.y = 0.55;
-    scene.add(bag);
+  // 문 (닫혀있음, E로 상호작용해서 열림)
+  const doorMat = new THREE.MeshStandardMaterial({color:0x4a3018, roughness:0.85});
+  const door = new THREE.Mesh(new THREE.BoxGeometry(0.14, roomH*0.9, width*0.82), doorMat);
+  door.position.set(fx, roomH*0.45, z);
+  door.receiveShadow = true;
+  scene.add(door);
+  const doorObstacle = { x:fx, z:z, radius:width*0.4, height:roomH+0.3 };
+  obstacles.push(doorObstacle);
+  const doorLabel = document.createElement('div');
+  doorLabel.className = 'ammoLabel';
+  doorLabel.textContent = '문 (E로 열기)';
+  document.body.appendChild(doorLabel);
+  foxholeDoors.push({ x:fx, z:z, facingSign, door, obstacle:doorObstacle, label:doorLabel, opened:false,
+    xMin:Math.min(fx,backX)+0.3, xMax:Math.max(fx,backX)-0.3, zMin:z-hw+0.3, zMax:z+hw-0.3 });
+
+  // 내부 가구: 아주 작은 침대, 옷장, 선반
+  const woodMat = new THREE.MeshStandardMaterial({color:0x6b4a2e, roughness:0.9});
+  const fabricMat = new THREE.MeshStandardMaterial({color:0x7d95cc});
+
+  // 침대
+  const bedX = backX + facingSign*0.6, bedZ = z - hw*0.55;
+  const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(0.95,0.16,0.5), woodMat);
+  bedFrame.position.set(bedX, 0.15, bedZ);
+  scene.add(bedFrame);
+  const mattress = new THREE.Mesh(new THREE.BoxGeometry(0.85,0.1,0.44), fabricMat);
+  mattress.position.set(bedX, 0.26, bedZ);
+  scene.add(mattress);
+  const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.09,0.38), new THREE.MeshStandardMaterial({color:0xffffff}));
+  pillow.position.set(bedX + facingSign*0.32, 0.3, bedZ);
+  scene.add(pillow);
+
+  const bedLabel = document.createElement('div');
+  bedLabel.className = 'ammoLabel';
+  bedLabel.textContent = '침대 (E로 눕기)';
+  document.body.appendChild(bedLabel);
+  foxholeBeds.push({ x:bedX, z:bedZ, y:0.32, label:bedLabel });
+
+  // 옷장
+  const wardrobeX = backX + facingSign*0.22, wardrobeZ = z + hw*0.62;
+  const wardrobe = new THREE.Mesh(new THREE.BoxGeometry(0.38,1.05,0.46), woodMat);
+  wardrobe.position.set(wardrobeX, 0.53, wardrobeZ);
+  scene.add(wardrobe);
+  const wardrobeLine = new THREE.Mesh(new THREE.BoxGeometry(0.02,0.9,0.02), new THREE.MeshStandardMaterial({color:0x2a1c10}));
+  wardrobeLine.position.set(wardrobeX + facingSign*0.2, 0.53, wardrobeZ);
+  scene.add(wardrobeLine);
+
+  // 선반 (측면 벽에 붙은 작은 선반 2단)
+  for (let i=0;i<2;i++){
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.05,0.2), woodMat);
+    shelf.position.set(midX + facingSign*0.6, 1.05+i*0.42, z + hw*0.86);
+    scene.add(shelf);
   }
 }
 
@@ -845,7 +1000,7 @@ function buildTunnel(){
   const edgeB = ISLAND_B_X - ISLAND_HALF_X;
   const startX = edgeA - TUNNEL_RAMP_LEN;
   const endX = edgeB + TUNNEL_RAMP_LEN;
-  const segCount = 22;
+  const segCount = 14;
   const segW = (endX-startX)/segCount;
 
   for (let i=0;i<segCount;i++){
@@ -859,15 +1014,25 @@ function buildTunnel(){
 
     const ceil = new THREE.Mesh(new THREE.BoxGeometry(segW*1.05, 0.3, TUNNEL_HALF_WID*2+0.7), wallMat);
     ceil.position.set(x, y+3.0, TUNNEL_Z);
-    ceil.castShadow = true;
+    ceil.castShadow = false;
     group.add(ceil);
 
     for (const zs of [-1,1]){
       const wall = new THREE.Mesh(new THREE.BoxGeometry(segW*1.05, 3.15, 0.3), wallMat);
       wall.position.set(x, y+1.5, TUNNEL_Z + zs*TUNNEL_HALF_WID);
       group.add(wall);
-      // 터널 옆벽은 총알과 이동을 막는 장애물로 등록 (해저터널을 뚫고 쏠 수 없게)
-      obstacles.push({x, z:TUNNEL_Z + zs*TUNNEL_HALF_WID, radius:segW*0.42, yMin:y-0.6, yMax:y+3.2, isTunnel:true});
+    }
+  }
+
+  // 터널 옆벽 충돌(총알/이동 차단) - 원들이 서로 겹치도록 반지름/간격을 맞춰 총알이 새지 않게 함
+  const collCount = 28;
+  const collW = (endX-startX)/collCount;
+  const collRadius = 1.6; // 통로 절반폭(TUNNEL_HALF_WID=2.6)보다 작아 통행은 가능하면서, 간격(collW)의 절반보다 커서 빈틈이 없음
+  for (let i=0;i<collCount;i++){
+    const x = startX + collW*(i+0.5);
+    if (tunnelHeightAt(x)===null) continue;
+    for (const zs of [-1,1]){
+      obstacles.push({x, z:TUNNEL_Z + zs*TUNNEL_HALF_WID, radius:collRadius, yMin:TUNNEL_FLOOR_Y-1, yMax:2.2, isTunnel:true});
     }
   }
 
@@ -978,7 +1143,7 @@ function createCharacterMesh(shirtColor){
   // 머리 (얼굴이 있는 부분 - 구)
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.34,12,12), skin);
   head.position.y = 1.72;
-  head.castShadow = true;
+  head.castShadow = false;
   grp.add(head);
   const eyeMat = new THREE.MeshBasicMaterial({color:0x222222});
   const eyeGeo = new THREE.SphereGeometry(0.045,6,6);
@@ -990,7 +1155,7 @@ function createCharacterMesh(shirtColor){
   // 몸통 (육면체)
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.82,0.34), shirt);
   torso.position.y = 1.12;
-  torso.castShadow = true;
+  torso.castShadow = false;
   grp.add(torso);
 
   // 팔 (육면체, 좌우)
@@ -998,7 +1163,7 @@ function createCharacterMesh(shirtColor){
   for (const s of [-1,1]){
     const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.78,0.24), shirt);
     arm.position.set(s*0.42, 1.12, 0);
-    arm.castShadow = true;
+    arm.castShadow = false;
     grp.add(arm);
     arms.push(arm);
   }
@@ -1007,7 +1172,7 @@ function createCharacterMesh(shirtColor){
   for (const s of [-1,1]){
     const leg = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.82,0.28), pants);
     leg.position.set(s*0.15, 0.4, 0);
-    leg.castShadow = true;
+    leg.castShadow = false;
     grp.add(leg);
   }
 
@@ -1032,12 +1197,19 @@ function makeTeamChar(team, spawnX, spawnZ, laneZ){
   const mesh = createCharacterMesh(color);
   mesh.position.set(spawnX, 0, spawnZ);
   scene.add(mesh);
+  let speed = difficulty==='easy'?2.6:(difficulty==='hard'?4.4:3.4);
+  let hasRPG = false;
+  if (team==='red'){
+    const rc = profile.classes.runner, bc = profile.classes.bomber;
+    if (rc.owned && rc.level>=2) speed *= 1.5;
+    if (bc.owned && bc.level>=3) hasRPG = true;
+  }
   return {
     team, hp:100, maxHp:100, alive:true,
     x:spawnX, z:spawnZ, mesh, weaponMesh:null, currentWeaponMeshType:null, weapon:'rifle',
-    speed: difficulty==='easy'?2.6:(difficulty==='hard'?4.4:3.4),
+    speed,
     acc: difficulty==='easy'?0.3:(difficulty==='hard'?0.75:0.5),
-    lastFire:0, lastGrenade:0, laneZ, spawnX, spawnZ
+    lastFire:0, lastGrenade:0, lastRPG:0, hasRPG, laneZ, spawnX, spawnZ
   };
 }
 
@@ -1129,8 +1301,64 @@ function updateAmmoPickups(dt){
   }
 }
 
-function tryPickupAmmo(){
+function isInsideFoxhole(x,z){
+  for (const d of foxholeDoors){
+    if (!d.opened) continue;
+    if (x>=d.xMin && x<=d.xMax && z>=d.zMin && z<=d.zMax) return true;
+  }
+  return false;
+}
+
+function updateFoxholeDoors(){
+  for (const d of foxholeDoors){
+    if (!d.label) continue;
+    const wp = new THREE.Vector3(d.x, 1.2, d.z);
+    const proj = wp.clone().project(camera);
+    if (proj.z>1 || proj.z<-1 || Math.hypot(local.x-d.x, local.z-d.z) > 20){
+      d.label.style.display='none';
+    } else {
+      d.label.style.display='block';
+      d.label.style.left = ((proj.x*0.5+0.5)*innerWidth)+'px';
+      d.label.style.top = ((-proj.y*0.5+0.5)*innerHeight)+'px';
+      d.label.textContent = d.opened ? '문 닫기 (E)' : '문 열기 (E)';
+    }
+  }
+  for (const bed of foxholeBeds){
+    if (!bed.label) continue;
+    if (lyingDown){ bed.label.style.display='none'; continue; }
+    const wp = new THREE.Vector3(bed.x, bed.y+0.6, bed.z);
+    const proj = wp.clone().project(camera);
+    if (proj.z>1 || proj.z<-1 || Math.hypot(local.x-bed.x, local.z-bed.z) > 8){
+      bed.label.style.display='none';
+    } else {
+      bed.label.style.display='block';
+      bed.label.style.left = ((proj.x*0.5+0.5)*innerWidth)+'px';
+      bed.label.style.top = ((-proj.y*0.5+0.5)*innerHeight)+'px';
+    }
+  }
+}
+
+function clearFoxholeDoors(){
+  for (const d of foxholeDoors){
+    if (d.label && d.label.parentNode) d.label.parentNode.removeChild(d.label);
+  }
+  foxholeDoors = [];
+  for (const bed of foxholeBeds){
+    if (bed.label && bed.label.parentNode) bed.label.parentNode.removeChild(bed.label);
+  }
+  foxholeBeds = [];
+  lyingDown = false;
+}
+
+function tryInteract(){
   if (!local.alive) return;
+  if (lyingDown){ stopLyingDown(); return; }
+  for (const bed of foxholeBeds){
+    if (Math.hypot(local.x-bed.x, local.z-bed.z) < 1.6){
+      startLyingDown(bed);
+      return;
+    }
+  }
   for (const p of ammoPickups){
     if (!p.active) continue;
     if (Math.hypot(local.x-p.x, local.z-p.z) < 2.3){
@@ -1146,6 +1374,56 @@ function tryPickupAmmo(){
       return;
     }
   }
+  for (const d of foxholeDoors){
+    if (Math.hypot(local.x-d.x, local.z-d.z) < 2.2){
+      toggleFoxholeDoor(d);
+      return;
+    }
+  }
+}
+
+function toggleFoxholeDoor(d){
+  if (d.opened) closeFoxholeDoor(d); else openFoxholeDoor(d);
+}
+
+function openFoxholeDoor(d){
+  d.opened = true;
+  const idx = obstacles.indexOf(d.obstacle);
+  if (idx >= 0) obstacles.splice(idx, 1);
+  animateFoxholeDoor(d, true);
+  addKillFeed('🚪 문을 열었습니다');
+}
+
+function closeFoxholeDoor(d){
+  d.opened = false;
+  if (obstacles.indexOf(d.obstacle) < 0) obstacles.push(d.obstacle);
+  animateFoxholeDoor(d, false);
+  addKillFeed('🚪 문을 닫았습니다');
+}
+
+function animateFoxholeDoor(d, opening){
+  const startT = performance.now();
+  const fromX = d.door.position.x, fromRot = d.door.rotation.y;
+  const toX = opening ? (d.x - d.facingSign*0.05) : d.x;
+  const toRot = opening ? Math.PI*0.42 : 0;
+  const step = ()=>{
+    const t = Math.min(1, (performance.now()-startT)/350);
+    d.door.rotation.y = fromRot + (toRot-fromRot)*t;
+    d.door.position.x = fromX + (toX-fromX)*t;
+    if (t<1) requestAnimationFrame(step);
+  };
+  step();
+}
+
+function startLyingDown(bed){
+  lyingDown = true;
+  local.x = bed.x; local.z = bed.z;
+  addKillFeed('🛏 침대에 누웠습니다 (E로 일어나기)');
+}
+
+function stopLyingDown(){
+  lyingDown = false;
+  addKillFeed('일어났습니다');
 }
 
 // ---------- 입력 ----------
@@ -1154,11 +1432,13 @@ document.addEventListener('keydown', e=>{
   if (e.code==='Digit1') switchWeapon('rifle');
   if (e.code==='Digit2') switchWeapon('pistol');
   if (e.code==='Digit3') switchWeapon('katana');
-  if (e.code==='KeyE') tryPickupAmmo();
+  if (e.code==='KeyE') tryInteract();
   if (e.code==='Digit4') switchWeapon('shotgun');
   if (e.code==='Digit5') switchWeapon('grenade');
   if (e.code==='Digit6') switchWeapon('rpg');
+  if (e.code==='KeyB') useBandage();
   if (e.code==='KeyR') reload();
+  if (e.code==='ShiftLeft' || e.code==='ShiftRight'){ if (!e.repeat) registerRunEvent(); }
   if (e.code==='Enter'){
     const c = document.getElementById('console');
     if (c.classList.contains('show')){
@@ -1226,17 +1506,55 @@ function switchWeapon(name){
   updateWeaponUI();
 }
 
+function useBandage(){
+  if (!local.alive) return;
+  const dc = profile.classes.doctor;
+  if (!dc.owned){ addKillFeed('붕대가 없습니다 (의사 직업 필요)'); return; }
+  if (dc.level<3 && local.bandageCharges<=0){ addKillFeed('붕대를 다 썼습니다'); return; }
+  if (local.hp>=local.maxHp){ addKillFeed('체력이 이미 가득 찼습니다'); return; }
+  const now = performance.now();
+  if (now - local.lastBandage < WEAPONS.bandage.cooldown){ addKillFeed('붕대 재사용 대기중...'); return; }
+  local.lastBandage = now;
+  local.hp = Math.min(local.maxHp, local.hp + WEAPONS.bandage.heal);
+  if (dc.level<3) local.bandageCharges--;
+  updateHUD();
+  addKillFeed(`붕대 사용 (+${WEAPONS.bandage.heal} HP)`);
+  setViewmodel('bandage');
+  setTimeout(()=>{ if (local.alive) setViewmodel(local.weapon); }, 700);
+
+  // 레벨2 이상: 팀원(빨간팀)도 함께 회복
+  if (dc.level>=2 && mode==='ai'){
+    for (const c of teamChars){
+      if (c.team==='red' && c.alive) c.hp = Math.min(c.maxHp, c.hp + WEAPONS.bandage.heal);
+    }
+  }
+  dc.uses = (dc.uses||0)+1;
+  checkClassLevelUp('doctor');
+  saveProfile();
+}
+
 // ---------- 콘솔 / 치트 ----------
 function submitConsole(){
   const input = document.getElementById('consoleInput');
   const val = input.value.trim();
   input.value=''; document.getElementById('console').classList.remove('show');
+  const valLower = val.toLowerCase();
   if (val === 'I love RPG!'){
     local.coins += 9999;
-    local.owned.shotgun = true; local.owned.grenade = true; local.owned.rpg = true;
+    local.owned.shotgun = true; local.owned.grenade = true;
     local.ammo.shotgun = WEAPONS.shotgun.mag; local.reserve.shotgun = WEAPONS.shotgun.reserve;
     saveProfile();
     showCheatMsg();
+    updateWeaponUI(); updateHUD(); buildShop();
+  } else if (valLower === 'boom'){
+    const bc = profile.classes.bomber;
+    bc.owned = true;
+    if (bc.level < 1) bc.level = 1;
+    local.owned.rpg = true;
+    if (bc.level >= 2) local.owned.grenade = true;
+    saveProfile();
+    showCheatMsg();
+    addKillFeed('🎖 치트로 폭탄마 직업을 얻었습니다!');
     updateWeaponUI(); updateHUD(); buildShop();
   }
   requestPointerLock();
@@ -1267,8 +1585,7 @@ function buildShop(){
     const div = document.createElement('div');
     div.className='shopItem';
     const desc = key==='shotgun' ? '근거리 산탄, 상체 150 / 하체 100 데미지' :
-                 key==='grenade' ? '투척, 직격 상체80·하체70 / 스플래시 50' :
-                 '직격 상체200·하체150 / 스플래시 100';
+                 '투척, 직격 상체80·하체70 / 스플래시 50';
     div.innerHTML = `<div class="info"><b>${w.name} (${w.cost} 코인)</b><span>${desc}</span></div>`;
     const btn = document.createElement('button');
     btn.className='buyBtn';
@@ -1277,6 +1594,43 @@ function buildShop(){
     btn.disabled = owned || local.coins < w.cost;
     btn.onclick = ()=>buyItem(key);
     div.appendChild(btn);
+    list.appendChild(div);
+  }
+
+  // 직업(클래스) 섹션
+  const jobHeader = document.createElement('h2');
+  jobHeader.textContent = '💼 직업';
+  jobHeader.style.marginTop = '18px';
+  list.appendChild(jobHeader);
+
+  for (const key of Object.keys(CLASS_DEFS)){
+    const def = CLASS_DEFS[key];
+    const c = profile.classes[key];
+    const div = document.createElement('div');
+    div.className = 'shopItem';
+    div.style.flexDirection = 'column';
+    div.style.alignItems = 'flex-start';
+    if (!c.owned){
+      div.innerHTML = `<div class="info"><b>${def.name} (${def.cost} 코인)</b><span>${def.desc1}</span></div>`;
+      const btn = document.createElement('button');
+      btn.className = 'buyBtn';
+      btn.textContent = '구매';
+      btn.disabled = local.coins < def.cost;
+      btn.onclick = ()=>buyClass(key);
+      btn.style.marginTop = '8px';
+      div.appendChild(btn);
+    } else {
+      const descs = [def.desc1, def.desc2, def.desc3];
+      let progress = '';
+      if (key==='runner'){
+        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `팀 달리기 ${c.teamRuns||0}/10` : `달리기 ${c.runs||0}/100`;
+      } else if (key==='doctor'){
+        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `붕대 사용 ${c.uses||0}/30` : `붕대 사용 ${c.uses||0}/10`;
+      } else {
+        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `RPG+수류탄 ${c.heavyUses||0}/100` : `RPG 사용 ${c.rpgUses||0}/50`;
+      }
+      div.innerHTML = `<div class="info"><b>${def.name} - Lv.${c.level}</b><span>${descs[c.level-1]||''}</span><span style="color:#8fd19e;">${progress}</span></div>`;
+    }
     list.appendChild(div);
   }
 }
@@ -1427,6 +1781,7 @@ function doProjectile(w, type){
   const vel = dir.clone().multiplyScalar(w.speed);
   if (type==='grenade') vel.y += 4;
   projectiles.push({mesh, vel, type, born:performance.now(), owner:'local'});
+  registerWeaponUse(type);
 }
 
 function updateProjectiles(dt){
@@ -1582,6 +1937,19 @@ function updateWeaponUI(){
 function updateMovement(dt){
   if (!local.alive) return;
 
+  if (lyingDown){
+    if (keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD']||keys['Space']){
+      stopLyingDown();
+    } else {
+      curEyeH += (0.35 - curEyeH) * Math.min(1, dt*9);
+      const gY = groundHeightAt(local.x, local.z) || 0;
+      local.y = gY + curEyeH;
+      camera.position.set(local.x, local.y, local.z);
+      camera.rotation.set(pitch, yaw, 0, 'YXZ');
+      return;
+    }
+  }
+
   const shiftHeld = keys['ShiftLeft']||keys['ShiftRight'];
   const ctrlHeld = keys['ControlLeft']||keys['ControlRight'];
   const prone = !!keys['KeyZ'];
@@ -1607,10 +1975,11 @@ function updateMovement(dt){
   } else if (ctrlHeld){
     speedMul = 0.55; targetEye = EYE_H*0.62;
   } else if (shiftHeld){
-    speedMul = 1.6; targetEye = EYE_H;
+    speedMul = 1.6 * getRunnerSpeedMul(); targetEye = EYE_H;
   } else {
     speedMul = 1; targetEye = EYE_H;
   }
+  if (isInsideFoxhole(local.x, local.z)) targetEye *= 0.42;
   curEyeH += (targetEye - curEyeH) * Math.min(1, dt*9);
 
   const forward = new THREE.Vector3(Math.sin(yaw)*-1,0,Math.cos(yaw)*-1);
@@ -1754,13 +2123,9 @@ function resolveExplosion(pos, w, shooterTeam, excludeRef, byPlayer){
   }
 }
 
-function botAttemptShot(bot){
+function botAttemptShot(bot, nearest, nearestD){
   const now = performance.now();
   if (now - bot.lastFire < 380) return;
-  const targets = getAllTargets(bot).filter(t=>t.team!==bot.team);
-  if (!targets.length) return;
-  let nearest=null, nearestD=Infinity;
-  for (const t of targets){ const d=Math.hypot(t.x-bot.x, t.z-bot.z); if (d<nearestD){ nearestD=d; nearest=t; } }
   if (!nearest || nearestD > 42) return;
   const gY = groundHeightAt(bot.x, bot.z) || 0;
   const origin = new THREE.Vector3(bot.x, gY+1.5, bot.z);
@@ -1776,17 +2141,24 @@ function botAttemptShot(bot){
   }
 }
 
-function botAttemptGrenade(bot){
+function botAttemptGrenade(bot, nearest, nearestD){
   const now = performance.now();
   if (now - (bot.lastGrenade||0) < 9000) return;
-  const targets = getAllTargets(bot).filter(t=>t.team!==bot.team);
-  if (!targets.length) return;
-  let nearest=null, nearestD=Infinity;
-  for (const t of targets){ const d=Math.hypot(t.x-bot.x, t.z-bot.z); if (d<nearestD){ nearestD=d; nearest=t; } }
   if (!nearest || nearestD > 18 || Math.random() > 0.35) return;
   bot.lastGrenade = now;
   const pos = new THREE.Vector3(nearest.x + (Math.random()-0.5)*3, 1.1, nearest.z + (Math.random()-0.5)*3);
   resolveExplosion(pos, WEAPONS.grenade, bot.team, bot, false);
+}
+
+// 폭탄마 3레벨: 빨간팀 팀원도 RPG 사용
+function botAttemptRPG(bot, nearest, nearestD){
+  if (!bot.hasRPG) return;
+  const now = performance.now();
+  if (now - (bot.lastRPG||0) < 11000) return;
+  if (!nearest || nearestD > 30 || Math.random() > 0.3) return;
+  bot.lastRPG = now;
+  const pos = new THREE.Vector3(nearest.x + (Math.random()-0.5)*3, 1.1, nearest.z + (Math.random()-0.5)*3);
+  resolveExplosion(pos, WEAPONS.rpg, bot.team, bot, false);
 }
 
 function updateTeamChar(bot, dt){
@@ -1796,9 +2168,13 @@ function updateTeamChar(bot, dt){
   }
   if (bot.mesh) bot.mesh.visible = true;
 
-  const targets = getAllTargets(bot).filter(t=>t.team!==bot.team);
+  // 프레임마다 반복되던 타겟 탐색을 한 번으로 통합 (성능)
   let nearest=null, nearestD=Infinity;
-  for (const t of targets){ const d=Math.hypot(t.x-bot.x, t.z-bot.z); if (d<nearestD){ nearestD=d; nearest=t; } }
+  for (const t of getAllTargets(bot)){
+    if (t.team === bot.team) continue;
+    const d = Math.hypot(t.x-bot.x, t.z-bot.z);
+    if (d<nearestD){ nearestD=d; nearest=t; }
+  }
 
   let tx, tz;
   if (nearest && nearestD < 16){
@@ -1820,8 +2196,9 @@ function updateTeamChar(bot, dt){
     bot.mesh.rotation.y = Math.atan2(nearest.x-bot.x, nearest.z-bot.z);
   }
 
-  botAttemptShot(bot);
-  botAttemptGrenade(bot);
+  botAttemptShot(bot, nearest, nearestD);
+  botAttemptGrenade(bot, nearest, nearestD);
+  botAttemptRPG(bot, nearest, nearestD);
 }
 
 function updateTeamBattle(dt){
@@ -1930,6 +2307,7 @@ function animate(){
   updateProjectiles(dt);
   updateCoins(dt);
   updateAmmoPickups(dt);
+  updateFoxholeDoors();
   if (mode==='ai') { updateTeamBattle(dt); updateTeamWeaponMeshes(); } else { updateRemoteInterp(dt); sendState(); updateRemoteWeaponMesh(); }
   updateEnemyHUD();
   updateNameTag();
