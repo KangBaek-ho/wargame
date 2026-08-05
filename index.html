@@ -82,6 +82,7 @@
   #deathScreen h2 { font-size:40px; color:#ff5566; margin-bottom:10px; }
 
   #cheatMsg { position:fixed; top:80px; left:50%; transform:translateX(-50%); color:#ffd166; font-weight:900; font-size:20px; text-shadow:0 0 8px #000; z-index:40; display:none; }
+  #paintOverlay { position:fixed; inset:0; pointer-events:none; z-index:42; opacity:0; background-repeat:no-repeat; transition:opacity 0.15s; }
 
   #enemyHealthWrap { position:absolute; top:20px; left:50%; transform:translateX(-50%); width:260px; text-align:center; }
   #enemyNameLabel { font-size:13px; margin-bottom:3px; text-shadow:0 0 4px #000; font-weight:700; }
@@ -168,6 +169,7 @@
     <div class="slot locked" data-slot="4"><span class="num">4</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="15" width="26" height="3.5"/><rect x="4" y="20" width="26" height="3.5"/><rect x="2" y="14" width="6" height="10" rx="1"/></svg></div>
     <div class="slot locked" data-slot="5"><span class="num">5</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><circle cx="20" cy="24" r="9"/><rect x="17" y="9" width="6" height="6"/><rect x="14" y="6" width="12" height="3"/></svg></div>
     <div class="slot locked" data-slot="6"><span class="num">6</span><svg viewBox="0 0 40 40" fill="#cfd8e3"><rect x="4" y="17" width="24" height="6" rx="2"/><polygon points="28,14 36,20 28,26"/><rect x="10" y="23" width="4" height="8"/></svg></div>
+    <div class="slot locked" data-slot="7"><span class="num">7</span><svg viewBox="0 0 40 40" fill="#ff5fa2"><rect x="4" y="16" width="22" height="6" rx="2"/><circle cx="10" cy="26" r="4" fill="#2ecc71"/><rect x="26" y="17" width="8" height="4" rx="1"/></svg></div>
   </div>
   </div>
   <div id="coinDisplay">🪙 0</div>
@@ -189,6 +191,7 @@
 
 <div id="console"><input id="consoleInput" placeholder="명령어 입력..." /></div>
 <div id="cheatMsg">치트 활성화!</div>
+<div id="paintOverlay"></div>
 
 <div id="deathScreen">
   <h2>사망</h2>
@@ -303,7 +306,8 @@ const WEAPONS = {
   bandage: { name:'붕대',   type:'heal',    heal:100, cooldown:3000 },
   shotgun: { name:'샷건',   type:'hitscan', dmgUpper:150, dmgLower:100, pellets:8, rate:800, mag:6, reserve:18, spread:0.09, cost:100, hitRadius:1.3, bulletRadius:0.07 },
   grenade: { name:'수류탄', type:'grenade', dmgUpperContact:80, dmgLowerContact:70, dmgSplash:50, contactRadius:1.4, splashRadius:7, rate:900, cost:200, speed:22 },
-  rpg:     { name:'RPG',    type:'rocket',  dmgUpperContact:200, dmgLowerContact:150, dmgSplash:100, contactRadius:1.7, splashRadius:9, rate:1400, cost:500, speed:38 }
+  rpg:     { name:'RPG',    type:'rocket',  dmgUpperContact:200, dmgLowerContact:150, dmgSplash:100, contactRadius:1.7, splashRadius:9, rate:1400, cost:500, speed:38 },
+  paintgun:{ name:'페인트건', type:'hitscan', dmgHead:20, dmgUpper:10, dmgLower:5, rate:120, auto:true, hitRadius:0.95, bulletRadius:0.06, paint:true }
 };
 const SHOP_ORDER = ['shotgun','grenade'];
 
@@ -320,12 +324,17 @@ const CLASS_DEFS = {
   bomber: { name:'폭탄마', cost:1000,
     desc1:'Lv1: RPG를 가지고 시작 (RPG 50번 사용시 레벨업)',
     desc2:'Lv2: RPG+수류탄을 가지고 시작 (RPG+수류탄 100번 더 사용시 레벨업)',
-    desc3:'Lv3: 팀원도 RPG를 가짐 (수류탄 제외)' }
+    desc3:'Lv3: 팀원도 RPG를 가짐 (수류탄 제외)' },
+  painter: { name:'페인터', cost:30,
+    desc1:'Lv1: 페인트건을 가지고 시작 (탄약 무한, 연사 가능) (50번 사용시 레벨업)',
+    desc2:'Lv2: 페인트건 데미지 +5 (100번 더 사용시 레벨업)',
+    desc3:'Lv3: 페인트건 데미지 +10 더 (누적 +15)' }
 };
 const CLASS_LEVEL_RULES = {
   runner: [ {level:2, counter:'runs', threshold:100}, {level:3, counter:'teamRuns', threshold:10} ],
   doctor: [ {level:2, counter:'uses', threshold:10}, {level:3, counter:'uses', threshold:30} ],
-  bomber: [ {level:2, counter:'rpgUses', threshold:50}, {level:3, counter:'heavyUses', threshold:100} ]
+  bomber: [ {level:2, counter:'rpgUses', threshold:50}, {level:3, counter:'heavyUses', threshold:100} ],
+  painter: [ {level:2, counter:'uses', threshold:50}, {level:3, counter:'uses', threshold:150} ]
 };
 
 function checkClassLevelUp(key){
@@ -350,10 +359,18 @@ function buyClass(key){
   buildShop(); updateHUD();
 }
 
+// 직업은 하나만 장착 가능 - 장착된 직업의 효과만 실제로 적용됨
+function equipClass(key){
+  const c = profile.classes[key];
+  if (!c || !c.owned) return;
+  profile.equipped = (profile.equipped === key) ? null : key;
+  saveProfile();
+  buildShop();
+}
+
 function registerRunEvent(){
-  if (mode!=='ai' || !local.alive) return;
+  if (mode!=='ai' || !local.alive || profile.equipped!=='runner') return;
   const rc = profile.classes.runner;
-  if (!rc.owned) return;
   rc.runs = (rc.runs||0)+1;
   const nearbyTeammate = teamChars.some(c=>c.team==='red' && c.alive && Math.hypot(c.x-local.x,c.z-local.z)<15);
   if (nearbyTeammate) rc.teamRuns = (rc.teamRuns||0)+1;
@@ -362,29 +379,46 @@ function registerRunEvent(){
 }
 
 function registerWeaponUse(type){
-  if (mode!=='ai' || !local.alive) return;
+  if (mode!=='ai' || !local.alive || profile.equipped!=='bomber') return;
   const bc = profile.classes.bomber;
-  if (!bc.owned || (type!=='rpg' && type!=='grenade')) return;
+  if (type!=='rpg' && type!=='grenade') return;
   if (type==='rpg') bc.rpgUses = (bc.rpgUses||0)+1;
   bc.heavyUses = (bc.heavyUses||0)+1;
   checkClassLevelUp('bomber');
   saveProfile();
 }
 
+function registerPaintUse(){
+  if (mode!=='ai' || !local.alive || profile.equipped!=='painter') return;
+  const pc = profile.classes.painter;
+  pc.uses = (pc.uses||0)+1;
+  checkClassLevelUp('painter');
+  saveProfile();
+}
+
 function getRunnerSpeedMul(){
+  if (profile.equipped!=='runner') return 1;
   const rc = profile.classes.runner;
-  if (!rc.owned || rc.level<1) return 1;
   return rc.level>=3 ? 1.5*1.5 : 1.5;
 }
 
-// 현재 프로필 기준으로 매치 시작 시 직업 효과 적용 (붕대/RPG/수류탄 시작 지급)
-function applyClassEffects(){
-  const dc = profile.classes.doctor, bc = profile.classes.bomber;
-  local.bandageCharges = dc.owned ? (dc.level>=3 ? Infinity : 1) : 0;
-  if (bc.owned && bc.level>=1) local.owned.rpg = true;
-  if (bc.owned && bc.level>=2) local.owned.grenade = true;
+function getPaintgunBonusDmg(){
+  if (profile.equipped!=='painter') return 0;
+  const pc = profile.classes.painter;
+  return pc.level>=3 ? 15 : (pc.level>=2 ? 5 : 0);
 }
-const WEAPON_CYCLE = ['rifle','pistol','katana','shotgun','grenade','rpg'];
+
+// 현재 프로필 기준으로 매치 시작 시 직업 효과 적용 (장착된 직업만 적용됨)
+function applyClassEffects(){
+  const eq = profile.equipped;
+  const dc = profile.classes.doctor, bc = profile.classes.bomber;
+  local.bandageCharges = (eq==='doctor') ? (dc.level>=3 ? Infinity : 1) : 0;
+  local.owned.rpg = (eq==='bomber' && bc.level>=1);
+  local.owned.grenade = profile.owned.grenade || (eq==='bomber' && bc.level>=2);
+  local.owned.paintgun = (eq==='painter');
+  if (local.owned.paintgun){ local.ammo.paintgun = Infinity; local.reserve.paintgun = Infinity; }
+}
+const WEAPON_CYCLE = ['rifle','pistol','katana','shotgun','grenade','rpg','paintgun'];
 const MATCH_SLOTS = ['bw-open-1','bw-open-2','bw-open-3','bw-open-4','bw-open-5'];
 
 // ---------- 상태 ----------
@@ -413,7 +447,8 @@ function defaultClasses(){
   return {
     runner: { owned:false, level:0, runs:0, teamRuns:0 },
     doctor: { owned:false, level:0, uses:0 },
-    bomber: { owned:false, level:0, rpgUses:0, heavyUses:0 }
+    bomber: { owned:false, level:0, rpgUses:0, heavyUses:0 },
+    painter: { owned:false, level:0, uses:0 }
   };
 }
 function loadProfile(){
@@ -426,24 +461,27 @@ function loadProfile(){
       for (const k of Object.keys(dc)){
         Object.assign(dc[k], pc[k] || {});
       }
+      const equipped = (typeof p.equipped==='string' && dc[p.equipped] && dc[p.equipped].owned) ? p.equipped : null;
       return {
         coins: typeof p.coins==='number' ? p.coins : 0,
         owned: {
           shotgun: !!(p.owned && p.owned.shotgun),
           grenade: !!(p.owned && p.owned.grenade)
         },
-        classes: dc
+        classes: dc,
+        equipped
       };
     }
   }catch(e){}
-  return { coins:0, owned:{shotgun:false, grenade:false}, classes: defaultClasses() };
+  return { coins:0, owned:{shotgun:false, grenade:false}, classes: defaultClasses(), equipped:null };
 }
 function saveProfile(){
   try{
     localStorage.setItem(PROFILE_KEY, JSON.stringify({
       coins: local.coins,
       owned: { shotgun: local.owned.shotgun, grenade: local.owned.grenade },
-      classes: profile.classes
+      classes: profile.classes,
+      equipped: profile.equipped
     }));
   }catch(e){}
   updateHomeCoinDisplay();
@@ -457,7 +495,7 @@ let profile = loadProfile();
 let local = {
   x:0, y:EYE_H, z:0, hp:100, maxHp:100, coins:profile.coins, alive:true, nickname:'플레이어',
   weapon:'rifle', ammo:{rifle:30,pistol:12,shotgun:6}, reserve:{rifle:90,pistol:48,shotgun:18},
-  owned:{rifle:true,pistol:true,shotgun:profile.owned.shotgun,grenade:profile.owned.grenade,rpg:false},
+  owned:{rifle:true,pistol:true,shotgun:profile.owned.shotgun,grenade:profile.owned.grenade,rpg:false,paintgun:false},
   bandageCharges:0,
   lastFire:0, lastKnife:0, lastBandage:0, reloading:false
 };
@@ -738,6 +776,11 @@ function createWeaponMesh(type){
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,1.3,10), dark); tube.rotation.z=Math.PI/2; g.add(tube);
     const grip = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.2,0.08), wood); grip.position.set(-0.2,-0.18,0); g.add(grip);
     const sightTube = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.4,8), dark); sightTube.position.set(0.1,0.15,0); g.add(sightTube);
+  } else if (type==='paintgun'){
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.14,0.14), new THREE.MeshStandardMaterial({color:0xff5fa2})); g.add(body);
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.3,8), new THREE.MeshStandardMaterial({color:0x2ecc71})); tank.position.set(-0.1,-0.18,0); g.add(tank);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.05,0.18,8), dark); nozzle.rotation.z=Math.PI/2; nozzle.position.set(0.34,0,0); g.add(nozzle);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.2,0.08), new THREE.MeshStandardMaterial({color:0xffd166})); grip.position.set(-0.22,-0.14,0); g.add(grip);
   } else {
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.1,0.1), dark); g.add(body);
   }
@@ -971,7 +1014,7 @@ function buildFoxhole(cx, facingSign, z){
   bedLabel.className = 'ammoLabel';
   bedLabel.textContent = '침대 (E로 눕기)';
   document.body.appendChild(bedLabel);
-  foxholeBeds.push({ x:bedX, z:bedZ, y:0.32, label:bedLabel });
+  foxholeBeds.push({ x:bedX, z:bedZ, y:0.32, label:bedLabel, exitX: fx + facingSign*3.2, exitZ: z });
 
   // 옷장
   const wardrobeX = backX + facingSign*0.22, wardrobeZ = z + hw*0.62;
@@ -1201,8 +1244,8 @@ function makeTeamChar(team, spawnX, spawnZ, laneZ){
   let hasRPG = false;
   if (team==='red'){
     const rc = profile.classes.runner, bc = profile.classes.bomber;
-    if (rc.owned && rc.level>=2) speed *= 1.5;
-    if (bc.owned && bc.level>=3) hasRPG = true;
+    if (profile.equipped==='runner' && rc.level>=2) speed *= 1.5;
+    if (profile.equipped==='bomber' && bc.level>=3) hasRPG = true;
   }
   return {
     team, hp:100, maxHp:100, alive:true,
@@ -1348,6 +1391,7 @@ function clearFoxholeDoors(){
   }
   foxholeBeds = [];
   lyingDown = false;
+  currentBed = null;
 }
 
 function tryInteract(){
@@ -1415,15 +1459,22 @@ function animateFoxholeDoor(d, opening){
   step();
 }
 
+let currentBed = null;
 function startLyingDown(bed){
   lyingDown = true;
+  currentBed = bed;
   local.x = bed.x; local.z = bed.z;
-  addKillFeed('🛏 침대에 누웠습니다 (E로 일어나기)');
+  addKillFeed('🛏 침대에 누웠습니다 (E 또는 이동키로 일어나기)');
 }
 
 function stopLyingDown(){
   lyingDown = false;
-  addKillFeed('일어났습니다');
+  if (currentBed){
+    local.x = currentBed.exitX;
+    local.z = currentBed.exitZ;
+    currentBed = null;
+  }
+  addKillFeed('일어나서 밖으로 나왔습니다');
 }
 
 // ---------- 입력 ----------
@@ -1436,6 +1487,7 @@ document.addEventListener('keydown', e=>{
   if (e.code==='Digit4') switchWeapon('shotgun');
   if (e.code==='Digit5') switchWeapon('grenade');
   if (e.code==='Digit6') switchWeapon('rpg');
+  if (e.code==='Digit7') switchWeapon('paintgun');
   if (e.code==='KeyB') useBandage();
   if (e.code==='KeyR') reload();
   if (e.code==='ShiftLeft' || e.code==='ShiftRight'){ if (!e.repeat) registerRunEvent(); }
@@ -1501,6 +1553,7 @@ function switchWeapon(name){
   if (name==='shotgun' && !local.owned.shotgun) return;
   if (name==='grenade' && !local.owned.grenade) return;
   if (name==='rpg' && !local.owned.rpg) return;
+  if (name==='paintgun' && !local.owned.paintgun) return;
   local.weapon = name;
   setViewmodel(name);
   updateWeaponUI();
@@ -1509,7 +1562,7 @@ function switchWeapon(name){
 function useBandage(){
   if (!local.alive) return;
   const dc = profile.classes.doctor;
-  if (!dc.owned){ addKillFeed('붕대가 없습니다 (의사 직업 필요)'); return; }
+  if (profile.equipped!=='doctor'){ addKillFeed('붕대가 없습니다 (의사 직업 장착 필요)'); return; }
   if (dc.level<3 && local.bandageCharges<=0){ addKillFeed('붕대를 다 썼습니다'); return; }
   if (local.hp>=local.maxHp){ addKillFeed('체력이 이미 가득 찼습니다'); return; }
   const now = performance.now();
@@ -1603,7 +1656,7 @@ function buildShop(){
   jobHeader.style.marginTop = '18px';
   list.appendChild(jobHeader);
 
-  for (const key of Object.keys(CLASS_DEFS)){
+  for (const key of Object.keys(CLASS_DEFS).sort((a,b)=>CLASS_DEFS[a].cost-CLASS_DEFS[b].cost)){
     const def = CLASS_DEFS[key];
     const c = profile.classes[key];
     const div = document.createElement('div');
@@ -1626,10 +1679,20 @@ function buildShop(){
         progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `팀 달리기 ${c.teamRuns||0}/10` : `달리기 ${c.runs||0}/100`;
       } else if (key==='doctor'){
         progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `붕대 사용 ${c.uses||0}/30` : `붕대 사용 ${c.uses||0}/10`;
-      } else {
+      } else if (key==='bomber'){
         progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `RPG+수류탄 ${c.heavyUses||0}/100` : `RPG 사용 ${c.rpgUses||0}/50`;
+      } else {
+        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `페인트건 사용 ${c.uses||0}/150` : `페인트건 사용 ${c.uses||0}/50`;
       }
       div.innerHTML = `<div class="info"><b>${def.name} - Lv.${c.level}</b><span>${descs[c.level-1]||''}</span><span style="color:#8fd19e;">${progress}</span></div>`;
+      const equipBtn = document.createElement('button');
+      const isEquipped = profile.equipped === key;
+      equipBtn.className = 'buyBtn';
+      equipBtn.textContent = isEquipped ? '✅ 장착됨 (해제)' : '장착';
+      equipBtn.style.marginTop = '8px';
+      equipBtn.style.background = isEquipped ? '#2ecc71' : '#2ecc71cc';
+      equipBtn.onclick = ()=>equipClass(key);
+      div.appendChild(equipBtn);
     }
     list.appendChild(div);
   }
@@ -1697,7 +1760,16 @@ function doMelee(w){
 
 // 명중 지점의 y좌표를 대상이 서있는 바닥 높이 기준 상대값으로 환산해 상체/하체 판정
 function bodyPartFromY(hitY, baseY){
-  return (hitY - (baseY||0)) > 1.15 ? 'upper' : 'lower';
+  const rel = hitY - (baseY||0);
+  if (rel > 1.55) return 'head';
+  return rel > 1.1 ? 'upper' : 'lower';
+}
+
+// 부위별 데미지 계산 (머리 전용 데미지가 없는 무기는 상체 데미지로 대체)
+function computePartDamage(w, part){
+  if (part === 'head') return w.dmgHead !== undefined ? w.dmgHead : w.dmgUpper;
+  if (part === 'upper') return w.dmgUpper;
+  return w.dmgLower;
 }
 
 function doHitscan(w){
@@ -1719,12 +1791,13 @@ function doHitscan(w){
     }
   }
   if (hitInfo){
-    const dmg = hitInfo.part==='upper' ? w.dmgUpper : w.dmgLower;
+    const dmg = computePartDamage(w, hitInfo.part) + (w.paint ? getPaintgunBonusDmg() : 0);
     applyDamageGeneric(hitInfo.target, dmg, w.name, true);
   }
+  if (w.paint) registerPaintUse();
   const visualDir = getAimDir();
   const visRes = resolveShot(origin, visualDir, hitRadius, 'player');
-  spawnTracer(origin, visualDir, w.bulletRadius || 0.05, visRes.travelDist);
+  spawnTracer(origin, visualDir, w.bulletRadius || 0.05, visRes.travelDist, w.paint);
   send({t:'fx', kind:'shot', x:origin.x,y:origin.y,z:origin.z, yaw, pitch});
 }
 
@@ -1732,7 +1805,7 @@ const _bulletGeo = new THREE.SphereGeometry(1,6,6);
 const _bulletMat = new THREE.MeshBasicMaterial({color:0xfff4b0});
 const _tracerGeo = new THREE.CylinderGeometry(1,1,1,6,1,true);
 
-function spawnTracer(origin, dir, radius, travelDist){
+function spawnTracer(origin, dir, radius, travelDist, isPaint){
   radius = radius || 0.05;
   travelDist = travelDist || 60;
   const end = origin.clone().add(dir.clone().multiplyScalar(travelDist));
@@ -1756,7 +1829,8 @@ function spawnTracer(origin, dir, radius, travelDist){
   const length = origin.distanceTo(end);
   if (length > 0.05){
     const mid = origin.clone().add(end).multiplyScalar(0.5);
-    const mat = new THREE.MeshBasicMaterial({color:0xfff2a0, transparent:true, opacity:0.75});
+    const tracerColor = isPaint ? PAINT_COLORS[Math.floor(Math.random()*PAINT_COLORS.length)] : 0xfff2a0;
+    const mat = new THREE.MeshBasicMaterial({color:tracerColor, transparent:true, opacity:0.75});
     const mesh = new THREE.Mesh(_tracerGeo, mat);
     mesh.scale.set(radius*0.6, length, radius*0.6);
     mesh.position.copy(mid);
@@ -1851,7 +1925,27 @@ function applyDamageLocal(dmg, by){
   if (!local.alive) return;
   local.hp -= dmg;
   updateHUD();
+  if (by === WEAPONS.paintgun.name) applyPaintSplat();
   if (local.hp<=0){ local.hp=0; onLocalDeath(); }
+}
+
+// ---------- 페인트건 화면 효과 ----------
+let paintOpacity = 0, paintFadeTimer = null;
+const PAINT_COLORS = ['#ff375f','#3ddc97','#3aa0ff','#ffd166','#a259ff','#ff8f3f','#ff5fd2'];
+function applyPaintSplat(){
+  const el = document.getElementById('paintOverlay');
+  if (!el) return;
+  const c = PAINT_COLORS[Math.floor(Math.random()*PAINT_COLORS.length)];
+  const cx = 25 + Math.random()*50, cy = 25 + Math.random()*50;
+  el.style.background = `radial-gradient(circle at ${cx}% ${cy}%, ${c} 0%, ${c}cc 38%, transparent 72%)`;
+  paintOpacity = Math.min(1, paintOpacity + 0.5);
+  el.style.opacity = paintOpacity;
+  if (paintFadeTimer) clearInterval(paintFadeTimer);
+  paintFadeTimer = setInterval(()=>{
+    paintOpacity -= 0.05;
+    if (paintOpacity <= 0){ paintOpacity = 0; clearInterval(paintFadeTimer); paintFadeTimer = null; }
+    el.style.opacity = paintOpacity;
+  }, 150);
 }
 function onLocalDeath(){
   local.alive=false;
@@ -1880,11 +1974,16 @@ function respawnLocal(){
   document.getElementById('deathScreen').classList.remove('show');
   requestPointerLock();
   updateHUD(); updateWeaponUI();
+  paintOpacity = 0;
+  if (paintFadeTimer){ clearInterval(paintFadeTimer); paintFadeTimer=null; }
+  const po = document.getElementById('paintOverlay');
+  if (po) po.style.opacity = 0;
 }
 
 function reload(){
   const w = WEAPONS[local.weapon];
   if (w.type!=='hitscan') return;
+  if (local.weapon==='paintgun') return;
   if (local.reloading) return;
   if (local.ammo[local.weapon] >= w.mag) return;
   if (local.reserve[local.weapon] <= 0) return;
@@ -1920,16 +2019,18 @@ function updateHUD(){
 function updateWeaponUI(){
   const w = WEAPONS[local.weapon];
   document.getElementById('weaponName').textContent = w.name;
-  if (w.type==='hitscan') document.getElementById('ammoText').textContent = `${local.ammo[local.weapon]} / ${local.reserve[local.weapon]}`;
+  if (local.weapon==='paintgun') document.getElementById('ammoText').textContent = '∞ / ∞';
+  else if (w.type==='hitscan') document.getElementById('ammoText').textContent = `${local.ammo[local.weapon]} / ${local.reserve[local.weapon]}`;
   else if (w.type==='melee') document.getElementById('ammoText').textContent = '근접무기';
   else if (w.type==='grenade' || w.type==='rocket') document.getElementById('ammoText').textContent = '투척/발사';
   document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active'));
-  const map = {rifle:1,pistol:2,katana:3,shotgun:4,grenade:5,rpg:6};
+  const map = {rifle:1,pistol:2,katana:3,shotgun:4,grenade:5,rpg:6,paintgun:7};
   const activeSlot = document.querySelector(`.slot[data-slot="${map[local.weapon]}"]`);
   if (activeSlot) activeSlot.classList.add('active');
   document.querySelector('.slot[data-slot="4"]').classList.toggle('locked', !local.owned.shotgun);
   document.querySelector('.slot[data-slot="5"]').classList.toggle('locked', !local.owned.grenade);
   document.querySelector('.slot[data-slot="6"]').classList.toggle('locked', !local.owned.rpg);
+  document.querySelector('.slot[data-slot="7"]').classList.toggle('locked', !local.owned.paintgun);
   updateHUD();
 }
 
@@ -2115,7 +2216,7 @@ function resolveExplosion(pos, w, shooterTeam, excludeRef, byPlayer){
     let dmg = 0;
     if (d < w.contactRadius){
       const part = bodyPartFromY(pos.y, gY);
-      dmg = part==='upper' ? w.dmgUpperContact : w.dmgLowerContact;
+      dmg = part==='lower' ? w.dmgLowerContact : w.dmgUpperContact;
     } else if (d < w.splashRadius){
       dmg = w.dmgSplash;
     }
@@ -2136,7 +2237,7 @@ function botAttemptShot(bot, nearest, nearestD){
   const res = resolveShot(origin, dir, 0.95, bot);
   spawnTracer(origin, dir, 0.05, res.travelDist);
   if (res.hitInfo && res.hitInfo.target.team !== bot.team && Math.random() < bot.acc){
-    const dmg = res.hitInfo.part==='upper' ? 20 : 13;
+    const dmg = res.hitInfo.part==='lower' ? 13 : 20;
     applyDamageGeneric(res.hitInfo.target, dmg, '적 소총', false);
   }
 }
