@@ -10,6 +10,15 @@
   html,body { width:100%; height:100%; overflow:hidden; background:#000; }
   canvas { display:block; }
 
+  #settingsBtn { position:fixed; top:16px; left:16px; z-index:80; width:44px; height:44px; border-radius:50%; background:#0009; border:1px solid #fff3; color:#fff; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  #settingsBtn:hover { background:#ffffff22; }
+  #settingsPanel { position:fixed; top:66px; left:16px; z-index:80; background:#131f2eee; border:1px solid #2a4d6e; border-radius:10px; min-width:180px; overflow:hidden; display:none; }
+  #settingsPanel.show { display:block; }
+  .settingsRow { padding:12px 16px; color:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; }
+  .settingsRow:hover { background:#ffffff14; }
+  .settingsArrow { color:#8fa3bd; }
+  .settingsBack { color:#8fa3bd; justify-content:flex-start; gap:6px; border-top:1px solid #2a4d6e; }
+
   #menu {
     position:fixed; inset:0; background:linear-gradient(160deg,#1b2a3d,#0a0f1a);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -118,50 +127,65 @@
 </head>
 <body>
 
+<button id="settingsBtn" onclick="toggleSettingsPanel()">⚙️</button>
+<div id="settingsPanel">
+  <div id="settingsMain">
+    <div class="settingsRow" onclick="showLangChoices()">
+      <span data-i18n="settings_language">언어</span>
+      <span class="settingsArrow">›</span>
+    </div>
+  </div>
+  <div id="langChoices" style="display:none;">
+    <div class="settingsRow" onclick="setLanguage('ko')">🇰🇷 한국어</div>
+    <div class="settingsRow" onclick="setLanguage('en')">🇺🇸 English</div>
+    <div class="settingsRow settingsBack" onclick="showSettingsMain()">‹ <span data-i18n="settings_back">뒤로</span></div>
+  </div>
+</div>
+
 <div id="menu">
-  <h1>⚔ 다리 전쟁 ⚔</h1>
-  <p class="sub">3D FPS · 섬 두 개, 그 사이 다리 하나 · 코인을 모아 무기를 사라</p>
-  <div id="homeCoinDisplay">🪙 보유 코인: 0</div>
+  <h1>⚔ <span data-i18n="title">다리 전쟁</span> ⚔</h1>
+  <p class="sub" data-i18n="subtitle">3D FPS · 섬 두 개, 그 사이 다리 하나 · 코인을 모아 무기를 사라</p>
+  <div id="homeCoinDisplay">🪙 <span data-i18n="coins_label">보유 코인</span>: 0</div>
 
   <div id="nicknameWrap">
-    <input id="nicknameInput" placeholder="닉네임 입력 (선택)" maxlength="12" />
+    <input id="nicknameInput" data-i18n-placeholder="nickname_placeholder" placeholder="닉네임 입력 (선택)" maxlength="12" />
   </div>
 
   <div id="mainButtons">
-    <button class="menuBtn" onclick="showPanel('ai')">🤖 AI와 전쟁하기</button>
-    <button class="menuBtn" onclick="startMatchmaking()">🌐 온라인 대전 (아무나와 매칭)</button>
-    <button class="menuBtn" onclick="showPanel('host')">🔑 코드로 친구 초대하기</button>
-    <button class="menuBtn" onclick="showPanel('join')">🔑 코드로 참가하기</button>
-    <button class="menuBtn" onclick="openShopFromMenu()">🛒 상점 (무기 구매)</button>
+    <button class="menuBtn" onclick="showPanel('ai')">🤖 <span data-i18n="btn_ai">AI와 전쟁하기</span></button>
+    <button class="menuBtn" onclick="startMatchmaking()">🌐 <span data-i18n="btn_matchmaking">온라인 대전 (아무나와 매칭)</span></button>
+    <button class="menuBtn" onclick="showPanel('host')">🔑 <span data-i18n="btn_host">코드로 친구 초대하기</span></button>
+    <button class="menuBtn" onclick="showPanel('join')">🔑 <span data-i18n="btn_join">코드로 참가하기</span></button>
+    <button class="menuBtn" onclick="openShopFromMenu()">🛒 <span data-i18n="btn_shop">상점 (무기 구매)</span></button>
   </div>
 
   <div id="aiPanel" class="panel">
-    <p style="color:#cde;margin-bottom:8px;">난이도를 선택하세요</p>
-    <button class="menuBtn" onclick="startGame('ai','easy')">쉬움</button>
-    <button class="menuBtn" onclick="startGame('ai','normal')">보통</button>
-    <button class="menuBtn" onclick="startGame('ai','hard')">어려움</button>
+    <p style="color:#cde;margin-bottom:8px;" data-i18n="choose_difficulty">난이도를 선택하세요</p>
+    <button class="menuBtn" onclick="startGame('ai','easy')" data-i18n="difficulty_easy">쉬움</button>
+    <button class="menuBtn" onclick="startGame('ai','normal')" data-i18n="difficulty_normal">보통</button>
+    <button class="menuBtn" onclick="startGame('ai','hard')" data-i18n="difficulty_hard">어려움</button>
   </div>
 
   <div id="matchPanel" class="panel">
-    <p style="color:#cde;">전 세계 아무나와 매칭 중입니다</p>
-    <div id="matchStatus" style="color:#8fd19e;font-size:13px;">대기열 확인중...</div>
+    <p style="color:#cde;" data-i18n="matchmaking_desc">전 세계 아무나와 매칭 중입니다</p>
+    <div id="matchStatus" style="color:#8fd19e;font-size:13px;" data-i18n="matchmaking_status_checking">대기열 확인중...</div>
   </div>
 
   <div id="hostPanel" class="panel">
-    <p style="color:#cde;">아래 코드를 상대에게 알려주세요</p>
-    <div id="hostCodeBox">생성중...</div>
-    <div id="connStatus">연결 대기중...</div>
+    <p style="color:#cde;" data-i18n="host_desc">아래 코드를 상대에게 알려주세요</p>
+    <div id="hostCodeBox" data-i18n="generating">생성중...</div>
+    <div id="connStatus" data-i18n="waiting_connection">연결 대기중...</div>
   </div>
 
   <div id="joinPanel" class="panel">
-    <input id="joinCodeInput" placeholder="방 코드 입력" />
-    <button class="menuBtn go" onclick="joinRoom()">참가하기</button>
+    <input id="joinCodeInput" data-i18n-placeholder="join_code_placeholder" placeholder="방 코드 입력" />
+    <button class="menuBtn go" onclick="joinRoom()" data-i18n="btn_join_confirm">참가하기</button>
     <div id="connStatus2" class="connStatus"></div>
   </div>
 </div>
 
 <div id="hud">
-  <button id="exitBtn" onclick="exitToMenu()">🚪 나가기</button>
+  <button id="exitBtn" onclick="exitToMenu()">🚪 <span data-i18n="btn_exit">나가기</span></button>
   <div id="crosshair"></div>
   <div id="healthWrap">
     <div id="healthBarBg"><div id="healthBar"></div></div>
@@ -594,6 +618,69 @@ function updateHomeCoinDisplay(){
   const el = document.getElementById('homeCoinDisplay');
   if (el) el.textContent = `🪙 보유 코인: ${local.coins}`;
 }
+// ---------- 언어(i18n) ----------
+const I18N = {
+  ko: {
+    title:'다리 전쟁', subtitle:'3D FPS · 섬 두 개, 그 사이 다리 하나 · 코인을 모아 무기를 사라',
+    coins_label:'보유 코인', nickname_placeholder:'닉네임 입력 (선택)',
+    btn_ai:'AI와 전쟁하기', btn_matchmaking:'온라인 대전 (아무나와 매칭)',
+    btn_host:'코드로 친구 초대하기', btn_join:'코드로 참가하기', btn_shop:'상점 (무기 구매)',
+    choose_difficulty:'난이도를 선택하세요', difficulty_easy:'쉬움', difficulty_normal:'보통', difficulty_hard:'어려움',
+    matchmaking_desc:'전 세계 아무나와 매칭 중입니다', matchmaking_status_checking:'대기열 확인중...',
+    host_desc:'아래 코드를 상대에게 알려주세요', generating:'생성중...', waiting_connection:'연결 대기중...',
+    join_code_placeholder:'방 코드 입력', btn_join_confirm:'참가하기',
+    btn_exit:'나가기', settings_language:'언어', settings_back:'뒤로'
+  },
+  en: {
+    title:'Bridge War', subtitle:'3D FPS · Two islands, one bridge between them · Collect coins to buy weapons',
+    coins_label:'Coins', nickname_placeholder:'Enter nickname (optional)',
+    btn_ai:'Fight vs AI', btn_matchmaking:'Online Match (vs anyone)',
+    btn_host:'Invite a Friend (code)', btn_join:'Join with Code', btn_shop:'Shop (buy weapons)',
+    choose_difficulty:'Choose a difficulty', difficulty_easy:'Easy', difficulty_normal:'Normal', difficulty_hard:'Hard',
+    matchmaking_desc:'Matching with anyone worldwide', matchmaking_status_checking:'Checking queue...',
+    host_desc:'Share this code with your opponent', generating:'Generating...', waiting_connection:'Waiting for connection...',
+    join_code_placeholder:'Enter room code', btn_join_confirm:'Join',
+    btn_exit:'Exit', settings_language:'Language', settings_back:'Back'
+  }
+};
+let currentLang = 'ko';
+try{ const saved = localStorage.getItem('bwLang'); if (saved==='ko'||saved==='en') currentLang = saved; }catch(e){}
+
+function applyLanguage(){
+  const dict = I18N[currentLang] || I18N.ko;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]!==undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (dict[key]!==undefined) el.placeholder = dict[key];
+  });
+  document.documentElement.lang = currentLang;
+}
+
+function setLanguage(lang){
+  currentLang = lang;
+  try{ localStorage.setItem('bwLang', lang); }catch(e){}
+  applyLanguage();
+  toggleSettingsPanel(false);
+}
+
+function toggleSettingsPanel(force){
+  const el = document.getElementById('settingsPanel');
+  const show = force!==undefined ? force : !el.classList.contains('show');
+  el.classList.toggle('show', show);
+  if (show) showSettingsMain();
+}
+function showLangChoices(){
+  document.getElementById('settingsMain').style.display='none';
+  document.getElementById('langChoices').style.display='block';
+}
+function showSettingsMain(){
+  document.getElementById('settingsMain').style.display='block';
+  document.getElementById('langChoices').style.display='none';
+}
+
 let profile = loadProfile();
 
 let local = {
@@ -612,6 +699,7 @@ let ammoPickups = [];
 let explosionFX = [];
 
 updateHomeCoinDisplay();
+applyLanguage();
 
 // ---------- 메뉴 로직 ----------
 function getNickname(){
