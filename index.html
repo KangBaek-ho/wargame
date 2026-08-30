@@ -19,6 +19,33 @@
   .settingsArrow { color:#8fa3bd; }
   .settingsBack { color:#8fa3bd; justify-content:flex-start; gap:6px; border-top:1px solid #2a4d6e; }
 
+  /* ---- toggle switch (settings) ---- */
+  .toggleSwitch { position:relative; width:40px; height:22px; border-radius:11px; background:#334; flex-shrink:0; transition:background .15s; }
+  .toggleSwitch .toggleKnob { position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#cde; transition:transform .15s; }
+  .toggleSwitch.on { background:#2ecc71; }
+  .toggleSwitch.on .toggleKnob { transform:translateX(18px); background:#fff; }
+
+  /* ---- mobile on-screen controls ---- */
+  #mobileControls { position:fixed; inset:0; z-index:65; display:none; -webkit-user-select:none; user-select:none; }
+  #mobileControls.show { display:block; }
+  #mcLookLayer { position:absolute; inset:0; pointer-events:auto; touch-action:none; z-index:0; }
+  #mcControlZone { position:absolute; right:0; top:0; bottom:0; width:230px; pointer-events:auto; touch-action:none; z-index:1; }
+  #mcJoystickBase { position:absolute; left:26px; bottom:34px; width:118px; height:118px; border-radius:50%; background:#ffffff14; border:2px solid #ffffff4d; pointer-events:auto; touch-action:none; z-index:2; }
+  #mcJoystickKnob { position:absolute; left:50%; top:50%; width:52px; height:52px; margin-left:-26px; margin-top:-26px; border-radius:50%; background:#ffffff40; border:2px solid #ffffffb0; }
+  .mcBtn { position:absolute; display:flex; align-items:center; justify-content:center; border-radius:50%; background:#ffffff1f; border:2px solid #ffffff55; color:#fff; font-weight:900; font-size:13px; text-shadow:0 0 4px #000; pointer-events:auto; touch-action:none; z-index:2; }
+  .mcBtn:active, .mcBtn.active { background:#ffd16655; border-color:#ffd166; }
+  #mcRun { right:128px; bottom:150px; width:66px; height:66px; }
+  #mcCrouch { right:150px; bottom:66px; width:60px; height:60px; }
+  #mcJump { right:26px; bottom:70px; width:96px; height:96px; font-size:15px; }
+  @media (max-width:480px){
+    #mcJoystickBase { width:100px; height:100px; left:18px; bottom:26px; }
+    #mcJoystickKnob { width:44px; height:44px; margin-left:-22px; margin-top:-22px; }
+    #mcRun { right:104px; bottom:128px; width:56px; height:56px; }
+    #mcCrouch { right:124px; bottom:54px; width:52px; height:52px; }
+    #mcJump { right:18px; bottom:56px; width:82px; height:82px; }
+    #mcControlZone { width:200px; }
+  }
+
   #menu {
     position:fixed; inset:0; background:linear-gradient(160deg,#1b2a3d,#0a0f1a);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -134,6 +161,10 @@
       <span data-i18n="settings_language">언어</span>
       <span class="settingsArrow">›</span>
     </div>
+    <div class="settingsRow" onclick="setMobileMode(!mobileMode)">
+      <span data-i18n="settings_mobile">모바일 버전</span>
+      <span id="mobileToggleSwitch" class="toggleSwitch"><span class="toggleKnob"></span></span>
+    </div>
   </div>
   <div id="langChoices" style="display:none;">
     <div class="settingsRow" onclick="setLanguage('ko')">🇰🇷 한국어</div>
@@ -214,33 +245,42 @@
     <div id="matchScore"><span class="scoreRed">🔴 0</span> : <span class="scoreBlue">0 🔵</span></div>
   </div>
   <div id="enemyHealthWrap">
-    <div id="enemyNameLabel">상대</div>
+    <div id="enemyNameLabel" data-i18n="enemy_default">상대</div>
     <div id="enemyHealthBarBg"><div id="enemyHealthBar"></div></div>
   </div>
   <div id="hint">WASD 이동 · SHIFT 달리기 · CTRL 앉기(+W 슬라이딩) · Z 엎드리기 · 스페이스 점프 · 좌클릭 공격 · 우클릭 조준 · 휠 무기 변경 · R 재장전 · E 탄약 줍기/문 열기 · B 붕대 · Enter 콘솔</div>
 </div>
 <div id="enemyNameTag"></div>
 
-<div id="shop">
-  <h2>🛒 상점</h2>
-  <div id="shopCoins">보유 코인: 0</div>
-  <div id="shopList"></div>
-  <button id="shopClose" onclick="closeShop()">닫기</button>
+<div id="mobileControls">
+  <div id="mcLookLayer"></div>
+  <div id="mcControlZone"></div>
+  <div id="mcJoystickBase"><div id="mcJoystickKnob"></div></div>
+  <button id="mcRun" class="mcBtn" data-i18n="mobile_run">달리기</button>
+  <button id="mcCrouch" class="mcBtn" data-i18n="mobile_crouch">웅크리기</button>
+  <button id="mcJump" class="mcBtn" data-i18n="mobile_jump">점프</button>
 </div>
 
-<div id="console"><input id="consoleInput" placeholder="명령어 입력..." /></div>
-<div id="cheatMsg">치트 활성화!</div>
+<div id="shop">
+  <h2>🛒 <span data-i18n="shop_title_text">상점</span></h2>
+  <div id="shopCoins">보유 코인: 0</div>
+  <div id="shopList"></div>
+  <button id="shopClose" onclick="closeShop()" data-i18n="shop_close">닫기</button>
+</div>
+
+<div id="console"><input id="consoleInput" placeholder="명령어 입력..." data-i18n-placeholder="console_placeholder" /></div>
+<div id="cheatMsg" data-i18n="cheat_msg">치트 활성화!</div>
 <div id="paintOverlay"></div>
 
 <div id="deathScreen">
-  <h2>사망</h2>
+  <h2 data-i18n="death_title">사망</h2>
   <div id="respawnTimer">3초 후 부활...</div>
 </div>
 
 <div id="roundEndScreen">
   <h2 id="roundEndTitle">🔴 빨간팀 승리!</h2>
   <p id="roundEndScore">빨간팀 50 : 파란팀 30</p>
-  <p style="margin-top:14px;color:#9fb3c8;">잠시 후 새 라운드가 시작됩니다...</p>
+  <p style="margin-top:14px;color:#9fb3c8;" data-i18n="round_next">잠시 후 새 라운드가 시작됩니다...</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -403,7 +443,7 @@ function checkClassLevelUp(key){
   for (const r of CLASS_LEVEL_RULES[key]){
     if (c.level < r.level && (c[r.counter]||0) >= r.threshold){
       c.level = r.level;
-      addKillFeed(`🎖 ${CLASS_DEFS[key].name} 레벨 ${r.level} 달성!`);
+      kf('classlevel', {class: cLabel(key), n: r.level});
     }
   }
 }
@@ -475,7 +515,7 @@ function updateBandageRegen(){
       local.lastBandageRegen = performance.now();
       if (local.bandageCharges < 3){
         local.bandageCharges++;
-        addKillFeed('🩹 붕대가 1개 새로 생겼습니다');
+        kf('bandage_new');
       }
     }
   }
@@ -510,7 +550,7 @@ function onPlayerKill(){
   if (profile.equipped==='police'){
     local.specialPistolMaxMag = (local.specialPistolMaxMag||70) + 10;
     local.ammo.specialpistol = local.specialPistolMaxMag;
-    addKillFeed(`🔫 특수권총 탄창 +10 (현재 ${local.specialPistolMaxMag}발)`);
+    kf('specialpistol_ammo', {n: local.specialPistolMaxMag});
   }
 }
 
@@ -616,7 +656,7 @@ function saveProfile(){
 }
 function updateHomeCoinDisplay(){
   const el = document.getElementById('homeCoinDisplay');
-  if (el) el.textContent = `🪙 보유 코인: ${local.coins}`;
+  if (el) el.textContent = `🪙 ${T('coins_label')}: ${local.coins}`;
 }
 // ---------- 언어(i18n) ----------
 const I18N = {
@@ -629,7 +669,72 @@ const I18N = {
     matchmaking_desc:'전 세계 아무나와 매칭 중입니다', matchmaking_status_checking:'대기열 확인중...',
     host_desc:'아래 코드를 상대에게 알려주세요', generating:'생성중...', waiting_connection:'연결 대기중...',
     join_code_placeholder:'방 코드 입력', btn_join_confirm:'참가하기',
-    btn_exit:'나가기', settings_language:'언어', settings_back:'뒤로'
+    btn_exit:'나가기', settings_language:'언어', settings_back:'뒤로',
+    settings_mobile:'모바일 버전', settings_mobile_on:'켜짐', settings_mobile_off:'꺼짐',
+    hint_text:'WASD 이동 · SHIFT 달리기 · CTRL 앉기(+W 슬라이딩) · Z 엎드리기 · 스페이스 점프 · 좌클릭 공격 · 우클릭 조준 · 휠 무기 변경 · R 재장전 · E 탄약 줍기/문 열기 · B 붕대 · Enter 콘솔',
+    hint_text_mobile:'왼쪽 스틱: 이동 · 화면 드래그: 시점/발사 · 오른쪽 버튼: 달리기·웅크리기·점프',
+    console_placeholder:'명령어 입력...', cheat_msg:'치트 활성화!',
+    death_title:'사망', respawn_timer:'{n}초 후 부활...',
+    round_draw:'무승부', round_win_red:'🔴 빨간팀 승리!', round_win_blue:'🔵 파란팀 승리!',
+    round_score:'빨간팀 {red} : 파란팀 {blue}', round_next:'잠시 후 새 라운드가 시작됩니다...',
+    shop_title:'🛒 상점', shop_title_text:'상점', shop_close:'닫기', shop_jobs:'💼 직업', shop_buy:'구매', shop_owned:'보유중',
+    shop_equip:'장착', shop_equipped:'✅ 장착됨 (해제)', shop_maxlevel:'최고 레벨 달성',
+    enemy_default:'상대', player_default:'플레이어',
+    melee_label:'근접무기', throw_label:'투척/발사', spray_label:'분사 도구', ammo_pickup_label:'{w} 탄약 (E)',
+    w_rifle:'소총', w_pistol:'권총', w_katana:'카타나', w_bandage:'붕대', w_shotgun:'샷건',
+    w_grenade:'수류탄', w_rpg:'RPG', w_paintgun:'페인트건', w_specialpistol:'특수권총',
+    w_taser:'테이저건', w_extinguisher:'소화기',
+    shopdesc_shotgun:'근거리 산탄, 상체 150 / 하체 100 데미지',
+    shopdesc_grenade:'투척, 직격 상체80·하체70 / 스플래시 50',
+    c_runner:'러너', c_doctor:'의사', c_bomber:'폭탄맨', c_painter:'페인터', c_police:'경찰관', c_firefighter:'소방관',
+    c_runner_desc1:'Lv1: SHIFT 달리기 1.5배 빠름 (달리기 100번 사용시 레벨업)',
+    c_runner_desc2:'Lv2: 팀원도 달리기가 빨라짐 (팀원과 함께 10번 달리기시 레벨업)',
+    c_runner_desc3:'Lv3: 달리기가 1.5배 더 빨라짐',
+    c_doctor_desc1:'Lv1: 붕대 1개를 가지고 시작 (붕대 10번 사용시 레벨업)',
+    c_doctor_desc2:'Lv2: 붕대 사용시 팀원도 회복 (붕대 20번 더 사용시 레벨업)',
+    c_doctor_desc3:'Lv3: 붕대 무한 사용',
+    c_bomber_desc1:'Lv1: RPG를 가지고 시작 (RPG 50번 사용시 레벨업)',
+    c_bomber_desc2:'Lv2: RPG+수류탄을 가지고 시작 (RPG+수류탄 100번 더 사용시 레벨업)',
+    c_bomber_desc3:'Lv3: 팀원도 RPG를 가짐 (수류탄 제외)',
+    c_painter_desc1:'Lv1: 페인트건을 가지고 시작 (탄약 무한, 연사 가능) (50번 사용시 레벨업)',
+    c_painter_desc2:'Lv2: 페인트건 데미지 +5 (100번 더 사용시 레벨업)',
+    c_painter_desc3:'Lv3: 페인트건 데미지 +10 더 (누적 +15)',
+    c_police_desc1:'Lv1: 특수권총+테이저건을 가지고 시작 (특수권총 30번 사용시 레벨업)',
+    c_police_desc2:'Lv2: 테이저 데미지 +10 (특수권총 누적 100번 사용시 레벨업)',
+    c_police_desc3:'Lv3: 특수권총 데미지 +10',
+    c_firefighter_desc1:'Lv1: 특수 소화기를 가지고 시작, 불이 더 빨리 꺼짐 (소화기 50번 사용시 레벨업)',
+    c_firefighter_desc2:'Lv2: 30% 확률로 불이 2초 후 자동으로 꺼짐 (소화기 100번 더 사용시 레벨업)',
+    c_firefighter_desc3:'Lv3: 불을 끄면 그 불이 상대팀 쪽으로 옮겨붙음',
+    prog_runner1:'달리기 {n}/100', prog_runner2:'팀 달리기 {n}/10',
+    prog_doctor1:'붕대 사용 {n}/10', prog_doctor2:'붕대 사용 {n}/30',
+    prog_bomber1:'RPG 사용 {n}/50', prog_bomber2:'RPG+수류탄 {n}/100',
+    prog_painter1:'페인트건 사용 {n}/50', prog_painter2:'페인트건 사용 {n}/150',
+    prog_police1:'특수권총 사용 {n}/30', prog_police2:'특수권총 사용 {n}/100',
+    prog_firefighter1:'소화기 사용 {n}/50', prog_firefighter2:'소화기 사용 {n}/150',
+    kf_classlevel:'🎖 {class} 레벨 {n} 달성!', kf_bandage_new:'🩹 붕대가 1개 새로 생겼습니다',
+    kf_specialpistol_ammo:'🔫 특수권총 탄창 +10 (현재 {n}발)', kf_enemy_down:'상대가 쓰러졌습니다',
+    kf_bridge_destroyed:'💥 다리가 파괴되었습니다! 30초 후 복구됩니다', kf_bridge_rebuilt:'🌉 다리가 복구되었습니다!',
+    kf_extinguisher_returned:'⏱ 시간 초과로 소화기가 원래 자리로 돌아갔습니다',
+    kf_no_shotgun:'샷건을 보유하고 있지 않아 사용할 수 없습니다', kf_ammo_full:'🔫 {weapon} 탄약 완충!',
+    kf_extinguisher_already:'이미 소화기를 들고 있습니다', kf_extinguisher_picked:'🧯 소화기를 들었습니다 (40초 안에 불을 꺼야 해요)',
+    kf_door_open:'🚪 문을 열었습니다', kf_door_close:'🚪 문을 닫았습니다',
+    kf_bed_lie:'🛏 침대에 누웠습니다 (E 또는 이동키로 일어나기)', kf_bed_up:'일어나서 밖으로 나왔습니다',
+    kf_no_bandage_class:'붕대가 없습니다 (의사 직업 장착 필요)', kf_bandage_empty:'붕대를 다 썼습니다',
+    kf_hp_full:'체력이 이미 가득 찼습니다', kf_bandage_cooldown:'붕대 재사용 대기중...',
+    kf_bandage_use:'붕대 사용 (+{n} HP)', kf_cheat_bomber:'🎖 치트로 폭탄맨 직업을 얻었습니다!',
+    kf_no_ammo:'탄약 없음! R로 재장전', kf_fire_out:'🧯 불을 껐습니다!', kf_reloading:'재장전중...',
+    kf_team_died:'{team} 전사{killed}', kf_killed_suffix:' (플레이어 처치!)',
+    team_red:'🔴빨간팀', team_blue:'🔵파란팀', team_blue_ai:'파란팀 AI', alive_label:'생존',
+    mobile_run:'달리기', mobile_crouch:'웅크리기', mobile_jump:'점프',
+    mp_lib_fail:'멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.',
+    mp_searching:'상대를 찾는 중...', mp_found:'상대를 찾았습니다! 게임을 시작합니다...',
+    mp_full:'지금은 매칭 자리가 가득 찼습니다. 잠시 후 다시 시도해주세요.',
+    mp_waiting_opponent:'상대를 기다리는 중... (자동으로 시작됩니다)',
+    mp_opponent_joined:'상대가 입장했습니다! 게임을 시작합니다...',
+    mp_error:'오류', mp_error_prefix:'오류: ', mp_connected:'연결됨! 게임을 시작합니다...',
+    mp_connecting:'연결 시도중...',
+    label_door:'문 (E로 열기)', label_door_open:'문 닫기 (E)', label_door_close:'문 열기 (E)', label_bed:'침대 (E로 눕기)', label_extinguisher:'소화기 (E)',
+    lib_load_fail:'3D 라이브러리(Three.js)를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.'
   },
   en: {
     title:'Bridge War', subtitle:'3D FPS · Two islands, one bridge between them · Collect coins to buy weapons',
@@ -640,11 +745,87 @@ const I18N = {
     matchmaking_desc:'Matching with anyone worldwide', matchmaking_status_checking:'Checking queue...',
     host_desc:'Share this code with your opponent', generating:'Generating...', waiting_connection:'Waiting for connection...',
     join_code_placeholder:'Enter room code', btn_join_confirm:'Join',
-    btn_exit:'Exit', settings_language:'Language', settings_back:'Back'
+    btn_exit:'Exit', settings_language:'Language', settings_back:'Back',
+    settings_mobile:'Mobile Mode', settings_mobile_on:'On', settings_mobile_off:'Off',
+    hint_text:'WASD Move · SHIFT Sprint · CTRL Crouch(+W Slide) · Z Prone · Space Jump · LClick Attack · RClick Aim · Wheel Switch Weapon · R Reload · E Pickup/Door · B Bandage · Enter Console',
+    hint_text_mobile:'Left stick: move · Drag screen: look/fire · Right buttons: sprint · crouch · jump',
+    console_placeholder:'Enter command...', cheat_msg:'Cheat activated!',
+    death_title:'Dead', respawn_timer:'Respawning in {n}s...',
+    round_draw:'Draw', round_win_red:'🔴 Red Team Wins!', round_win_blue:'🔵 Blue Team Wins!',
+    round_score:'Red {red} : Blue {blue}', round_next:'A new round is starting soon...',
+    shop_title:'🛒 Shop', shop_title_text:'Shop', shop_close:'Close', shop_jobs:'💼 Classes', shop_buy:'Buy', shop_owned:'Owned',
+    shop_equip:'Equip', shop_equipped:'✅ Equipped (Unequip)', shop_maxlevel:'Max level reached',
+    enemy_default:'Opponent', player_default:'Player',
+    melee_label:'Melee weapon', throw_label:'Throw/Launch', spray_label:'Spray tool', ammo_pickup_label:'{w} Ammo (E)',
+    w_rifle:'Rifle', w_pistol:'Pistol', w_katana:'Katana', w_bandage:'Bandage', w_shotgun:'Shotgun',
+    w_grenade:'Grenade', w_rpg:'RPG', w_paintgun:'Paint Gun', w_specialpistol:'Special Pistol',
+    w_taser:'Taser', w_extinguisher:'Extinguisher',
+    shopdesc_shotgun:'Close-range pellets, 150 upper / 100 lower body damage',
+    shopdesc_grenade:'Thrown, direct hit 80 upper·70 lower / 50 splash',
+    c_runner:'Runner', c_doctor:'Doctor', c_bomber:'Bomber', c_painter:'Painter', c_police:'Police', c_firefighter:'Firefighter',
+    c_runner_desc1:'Lv1: Sprint 1.5x faster with SHIFT (level up after sprinting 100 times)',
+    c_runner_desc2:'Lv2: Teammates sprint faster too (level up after sprinting with a teammate 10 times)',
+    c_runner_desc3:'Lv3: Sprint becomes 1.5x faster again',
+    c_doctor_desc1:'Lv1: Start with 1 bandage (level up after using bandages 10 times)',
+    c_doctor_desc2:'Lv2: Bandages also heal teammates (level up after 20 more uses)',
+    c_doctor_desc3:'Lv3: Unlimited bandage use',
+    c_bomber_desc1:'Lv1: Start with an RPG (level up after using RPG 50 times)',
+    c_bomber_desc2:'Lv2: Start with RPG+Grenade (level up after 100 more heavy weapon uses)',
+    c_bomber_desc3:'Lv3: Teammates also get an RPG (excluding grenade)',
+    c_painter_desc1:'Lv1: Start with a paint gun (infinite ammo, full-auto) (level up after 50 uses)',
+    c_painter_desc2:'Lv2: Paint gun damage +5 (level up after 100 more uses)',
+    c_painter_desc3:'Lv3: Paint gun damage +10 more (total +15)',
+    c_police_desc1:'Lv1: Start with special pistol+taser (level up after using special pistol 30 times)',
+    c_police_desc2:'Lv2: Taser damage +10 (level up at 100 cumulative special pistol uses)',
+    c_police_desc3:'Lv3: Special pistol damage +10',
+    c_firefighter_desc1:'Lv1: Start with a special extinguisher, fires go out faster (level up after 50 uses)',
+    c_firefighter_desc2:'Lv2: 30% chance a fire auto-extinguishes after 2s (level up after 100 more uses)',
+    c_firefighter_desc3:'Lv3: Extinguished fire spreads toward the enemy team',
+    prog_runner1:'Sprints {n}/100', prog_runner2:'Team sprints {n}/10',
+    prog_doctor1:'Bandage uses {n}/10', prog_doctor2:'Bandage uses {n}/30',
+    prog_bomber1:'RPG uses {n}/50', prog_bomber2:'RPG+Grenade {n}/100',
+    prog_painter1:'Paint gun uses {n}/50', prog_painter2:'Paint gun uses {n}/150',
+    prog_police1:'Special pistol uses {n}/30', prog_police2:'Special pistol uses {n}/100',
+    prog_firefighter1:'Extinguisher uses {n}/50', prog_firefighter2:'Extinguisher uses {n}/150',
+    kf_classlevel:'🎖 {class} reached level {n}!', kf_bandage_new:'🩹 A new bandage appeared',
+    kf_specialpistol_ammo:'🔫 Special pistol mag +10 (now {n})', kf_enemy_down:'Opponent went down',
+    kf_bridge_destroyed:'💥 The bridge was destroyed! Rebuilding in 30s', kf_bridge_rebuilt:'🌉 The bridge has been rebuilt!',
+    kf_extinguisher_returned:'⏱ Time out — the extinguisher returned to its spot',
+    kf_no_shotgun:"You don't own a shotgun", kf_ammo_full:'🔫 {weapon} ammo refilled!',
+    kf_extinguisher_already:'You already have the extinguisher', kf_extinguisher_picked:'🧯 Picked up the extinguisher (put out the fire within 40s)',
+    kf_door_open:'🚪 Opened the door', kf_door_close:'🚪 Closed the door',
+    kf_bed_lie:'🛏 Lay down on the bed (press E or move to get up)', kf_bed_up:'Got up and went outside',
+    kf_no_bandage_class:'No bandages (Doctor class required)', kf_bandage_empty:'Out of bandages',
+    kf_hp_full:'Health is already full', kf_bandage_cooldown:'Bandage on cooldown...',
+    kf_bandage_use:'Used bandage (+{n} HP)', kf_cheat_bomber:'🎖 Got the Bomber class via cheat!',
+    kf_no_ammo:'Out of ammo! Press R to reload', kf_fire_out:'🧯 Fire put out!', kf_reloading:'Reloading...',
+    kf_team_died:'{team} eliminated{killed}', kf_killed_suffix:' (Player kill!)',
+    team_red:'🔴Red Team', team_blue:'🔵Blue Team', team_blue_ai:'Blue Team AI', alive_label:'alive',
+    mobile_run:'Sprint', mobile_crouch:'Crouch', mobile_jump:'Jump',
+    mp_lib_fail:"Couldn't load the multiplayer library. Check your internet connection/ad blocker.",
+    mp_searching:'Looking for an opponent...', mp_found:'Opponent found! Starting the game...',
+    mp_full:'Matchmaking is full right now. Please try again shortly.',
+    mp_waiting_opponent:'Waiting for opponent... (starts automatically)',
+    mp_opponent_joined:'Opponent joined! Starting the game...',
+    mp_error:'Error', mp_error_prefix:'Error: ', mp_connected:'Connected! Starting the game...',
+    mp_connecting:'Connecting...',
+    label_door:'Door (Press E to open)', label_door_open:'Close door (E)', label_door_close:'Open door (E)', label_bed:'Bed (Press E to lie down)', label_extinguisher:'Extinguisher (E)',
+    lib_load_fail:"Couldn't load the 3D library (Three.js). Check your internet connection and refresh."
   }
 };
 let currentLang = 'ko';
 try{ const saved = localStorage.getItem('bwLang'); if (saved==='ko'||saved==='en') currentLang = saved; }catch(e){}
+let mobileMode = false;
+try{ mobileMode = localStorage.getItem('bwMobile')==='1'; }catch(e){}
+
+function T(key){ const dict = I18N[currentLang] || I18N.ko; return dict[key]!==undefined ? dict[key] : key; }
+function fmt(str, params){
+  return str.replace(/\{(\w+)\}/g, (m,k)=> (params && params[k]!==undefined) ? params[k] : m);
+}
+function wLabel(key){ return T('w_'+key); }
+function cLabel(key){ return T('c_'+key); }
+function cdesc(key, level){ return T('c_'+key+'_desc'+level); }
+function kf(key, params){ addKillFeed(fmt(T('kf_'+key), params)); }
 
 function applyLanguage(){
   const dict = I18N[currentLang] || I18N.ko;
@@ -657,6 +838,11 @@ function applyLanguage(){
     if (dict[key]!==undefined) el.placeholder = dict[key];
   });
   document.documentElement.lang = currentLang;
+  const hintEl = document.getElementById('hint');
+  if (hintEl) hintEl.textContent = (typeof mobileMode!=='undefined' && mobileMode) ? T('hint_text_mobile') : T('hint_text');
+  if (typeof updateMobileToggleUI==='function') updateMobileToggleUI();
+  if (document.getElementById('hud') && document.getElementById('hud').style.display==='block' && typeof updateWeaponUI==='function') updateWeaponUI();
+  if (document.getElementById('shop') && document.getElementById('shop').classList.contains('show') && typeof buildShop==='function') buildShop();
 }
 
 function setLanguage(lang){
@@ -704,7 +890,7 @@ applyLanguage();
 // ---------- 메뉴 로직 ----------
 function getNickname(){
   const v = document.getElementById('nicknameInput').value.trim();
-  return v ? v.slice(0,12) : ('플레이어' + Math.floor(100+Math.random()*900));
+  return v ? v.slice(0,12) : (T('player_default') + Math.floor(100+Math.random()*900));
 }
 
 function showPanel(which){
@@ -720,10 +906,10 @@ async function startMatchmaking(){
   local.nickname = getNickname();
   showPanel('match');
   if (typeof Peer === 'undefined'){
-    document.getElementById('matchStatus').textContent = '멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.';
+    document.getElementById('matchStatus').textContent = T('mp_lib_fail');
     return;
   }
-  document.getElementById('matchStatus').textContent = '상대를 찾는 중...';
+  document.getElementById('matchStatus').textContent = T('mp_searching');
   for (const slotId of MATCH_SLOTS){
     const joined = await tryJoinSlot(slotId);
     if (joined) return;
@@ -745,7 +931,7 @@ function tryJoinSlot(slotId){
       c.on('open', ()=>{
         if (done) return; done=true; clearTimeout(timer);
         peer=p; conn=c; isHost=false; mode='client';
-        document.getElementById('matchStatus').textContent = '상대를 찾았습니다! 게임을 시작합니다...';
+        document.getElementById('matchStatus').textContent = T('mp_found');
         setupConn();
         setTimeout(()=>startGame('client'), 400);
         resolve(true);
@@ -766,18 +952,18 @@ function tryJoinSlot(slotId){
 
 function tryHostSlots(i){
   if (i >= MATCH_SLOTS.length){
-    document.getElementById('matchStatus').textContent = '지금은 매칭 자리가 가득 찼습니다. 잠시 후 다시 시도해주세요.';
+    document.getElementById('matchStatus').textContent = T('mp_full');
     return;
   }
   const slotId = MATCH_SLOTS[i];
-  document.getElementById('matchStatus').textContent = '상대를 기다리는 중... (자동으로 시작됩니다)';
+  document.getElementById('matchStatus').textContent = T('mp_waiting_opponent');
   const p = new Peer(slotId);
   let started=false;
   p.on('open', ()=>{ peer=p; isHost=true; mode='host'; });
   p.on('connection', c=>{
     if (started) return; started=true;
     conn=c;
-    document.getElementById('matchStatus').textContent = '상대가 입장했습니다! 게임을 시작합니다...';
+    document.getElementById('matchStatus').textContent = T('mp_opponent_joined');
     setupConn();
     setTimeout(()=>startGame('host'), 400);
   });
@@ -792,8 +978,8 @@ function startHost(){
   local.nickname = getNickname();
   isHost = true; mode='host';
   if (typeof Peer === 'undefined'){
-    document.getElementById('hostCodeBox').textContent = '오류';
-    document.getElementById('connStatus').textContent = '멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.';
+    document.getElementById('hostCodeBox').textContent = T('mp_error');
+    document.getElementById('connStatus').textContent = T('mp_lib_fail');
     return;
   }
   const code = 'bw-' + Math.random().toString(36).slice(2,8);
@@ -803,32 +989,32 @@ function startHost(){
   });
   peer.on('connection', c=>{
     conn = c;
-    document.getElementById('connStatus').textContent = '연결됨! 게임을 시작합니다...';
+    document.getElementById('connStatus').textContent = T('mp_connected');
     setupConn();
     setTimeout(()=>startGame('host'), 600);
   });
-  peer.on('error', e=>{ document.getElementById('connStatus').textContent = '오류: '+e.type; });
+  peer.on('error', e=>{ document.getElementById('connStatus').textContent = T('mp_error_prefix')+e.type; });
 }
 
 function joinRoom(){
   local.nickname = getNickname();
   if (typeof Peer === 'undefined'){
-    document.getElementById('connStatus2').textContent = '멀티플레이 라이브러리를 불러오지 못했습니다. 인터넷 연결/광고차단 프로그램을 확인해주세요.';
+    document.getElementById('connStatus2').textContent = T('mp_lib_fail');
     return;
   }
   const code = 'bw-' + document.getElementById('joinCodeInput').value.trim();
-  document.getElementById('connStatus2').textContent = '연결 시도중...';
+  document.getElementById('connStatus2').textContent = T('mp_connecting');
   isHost = false; mode='client';
   peer = new Peer();
   peer.on('open', ()=>{
     conn = peer.connect(code, {reliable:true});
     conn.on('open', ()=>{
-      document.getElementById('connStatus2').textContent = '연결됨! 게임을 시작합니다...';
+      document.getElementById('connStatus2').textContent = T('mp_connected');
       setupConn();
       setTimeout(()=>startGame('client'), 600);
     });
   });
-  peer.on('error', e=>{ document.getElementById('connStatus2').textContent = '오류: '+e.type; });
+  peer.on('error', e=>{ document.getElementById('connStatus2').textContent = T('mp_error_prefix')+e.type; });
 }
 
 function setupConn(){
@@ -845,7 +1031,7 @@ function setupConn(){
     } else if (data.t==='coin'){
       // just for kill feed flavor, ignored otherwise
     } else if (data.t==='dead'){
-      addKillFeed(`상대가 쓰러졌습니다`);
+      kf('enemy_down');
     } else if (data.t==='bridge'){
       if (data.action==='destroy') destroyBridge(false);
     }
@@ -857,7 +1043,7 @@ function send(obj){ if (conn && conn.open) conn.send(obj); }
 // ---------- 게임 시작 ----------
 function startGame(m, diff){
   if (typeof THREE === 'undefined'){
-    alert('3D 라이브러리(Three.js)를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침 해주세요.');
+    alert(T('lib_load_fail'));
     return;
   }
   mode = m; if (diff) difficulty = diff;
@@ -868,6 +1054,9 @@ function startGame(m, diff){
   document.getElementById('menu').style.display='none';
   document.getElementById('hud').style.display='block';
   gameActive = true;
+  updateMobileControlsVisibility();
+  const hintEl = document.getElementById('hint');
+  if (hintEl) hintEl.textContent = mobileMode ? T('hint_text_mobile') : T('hint_text');
   initThree();
   spawnLocal();
   if (mode==='ai') { spawnTeamBattle(); startMatch(); }
@@ -905,6 +1094,7 @@ function exitToMenu(){
   aiming=false; sliding=false; curEyeH=EYE_H;
   mode=null;
   document.getElementById('hud').style.display='none';
+  updateMobileControlsVisibility();
   document.getElementById('deathScreen').classList.remove('show');
   document.getElementById('console').classList.remove('show');
   document.getElementById('shop').classList.remove('show');
@@ -917,7 +1107,7 @@ function destroyBridge(broadcast){
   if (!bridgeIntact) return;
   bridgeIntact = false;
   if (bridgeGroup){ scene.remove(bridgeGroup); bridgeGroup = null; }
-  addKillFeed('💥 다리가 파괴되었습니다! 30초 후 복구됩니다');
+  kf('bridge_destroyed');
   if (broadcast !== false) send({t:'bridge', action:'destroy'});
   setTimeout(rebuildBridge, 30000);
 }
@@ -925,7 +1115,7 @@ function destroyBridge(broadcast){
 function rebuildBridge(){
   if (bridgeIntact) return;
   buildBridge();
-  addKillFeed('🌉 다리가 복구되었습니다!');
+  kf('bridge_rebuilt');
 }
 
 function checkBridgeDestruction(pos){
@@ -1023,6 +1213,7 @@ function updateRemoteWeaponMesh(){
 }
 
 function requestPointerLock(){
+  if (mobileMode) return;
   renderer.domElement.requestPointerLock();
 }
 
@@ -1197,7 +1388,7 @@ function buildFoxhole(cx, facingSign, z){
   obstacles.push(doorObstacle);
   const doorLabel = document.createElement('div');
   doorLabel.className = 'ammoLabel';
-  doorLabel.textContent = '문 (E로 열기)';
+  doorLabel.textContent = T('label_door');
   document.body.appendChild(doorLabel);
   foxholeDoors.push({ x:fx, z:z, facingSign, door, obstacle:doorObstacle, label:doorLabel, opened:false,
     xMin:Math.min(fx,backX)+0.3, xMax:Math.max(fx,backX)-0.3, zMin:z-hw+0.3, zMax:z+hw-0.3 });
@@ -1220,7 +1411,7 @@ function buildFoxhole(cx, facingSign, z){
 
   const bedLabel = document.createElement('div');
   bedLabel.className = 'ammoLabel';
-  bedLabel.textContent = '침대 (E로 눕기)';
+  bedLabel.textContent = T('label_bed');
   document.body.appendChild(bedLabel);
   foxholeBeds.push({ x:bedX, z:bedZ, y:0.32, label:bedLabel, exitX: fx + facingSign*3.2, exitZ: z });
 
@@ -1460,7 +1651,8 @@ function makeTeamChar(team, spawnX, spawnZ, laneZ){
     x:spawnX, z:spawnZ, mesh, weaponMesh:null, currentWeaponMeshType:null, weapon:'rifle',
     speed,
     acc: difficulty==='easy'?0.3:(difficulty==='hard'?0.75:0.5),
-    lastFire:0, lastGrenade:0, lastRPG:0, hasRPG, laneZ, spawnX, spawnZ
+    lastFire:0, lastGrenade:0, lastRPG:0, hasRPG, laneZ, spawnX, spawnZ,
+    path:null, hasExtinguisher:false, extinguisherPickup:null, stuckTime:0
   };
 }
 
@@ -1511,9 +1703,9 @@ function updateScoreHUD(){
 }
 
 function endRound(){
-  const winner = matchScore.red===matchScore.blue ? '무승부' : (matchScore.red>matchScore.blue ? '🔴 빨간팀 승리!' : '🔵 파란팀 승리!');
+  const winner = matchScore.red===matchScore.blue ? T('round_draw') : (matchScore.red>matchScore.blue ? T('round_win_red') : T('round_win_blue'));
   document.getElementById('roundEndTitle').textContent = winner;
-  document.getElementById('roundEndScore').textContent = `빨간팀 ${matchScore.red} : 파란팀 ${matchScore.blue}`;
+  document.getElementById('roundEndScore').textContent = fmt(T('round_score'), {red: matchScore.red, blue: matchScore.blue});
   document.getElementById('roundEndScreen').classList.add('show');
   roundEndTimer = setTimeout(()=>{
     roundEndTimer = null;
@@ -1564,7 +1756,7 @@ function spawnAmmoPickups(){
       scene.add(mesh);
       const label = document.createElement('div');
       label.className = 'ammoLabel';
-      label.textContent = WEAPONS[type].name + ' 탄약 (E)';
+      label.textContent = fmt(T('ammo_pickup_label'), {w: wLabel(type)});
       document.body.appendChild(label);
       ammoPickups.push({mesh, label, x, z, type, active:true, respawnAt:0});
     }
@@ -1614,7 +1806,7 @@ function spawnExtinguisherPickups(){
       scene.add(mesh);
       const label = document.createElement('div');
       label.className = 'ammoLabel';
-      label.textContent = '소화기 (E)';
+      label.textContent = T('label_extinguisher');
       document.body.appendChild(label);
       extinguisherPickups.push({mesh, label, x, z, homeX:x, homeZ:z, active:true});
     }
@@ -1646,7 +1838,7 @@ function updateExtinguisherPickups(dt){
   if (local.hasExtinguisher && local.extinguisherOwner){
     if (performance.now() - local.extinguisherPickedAt > 40000){
       returnExtinguisher();
-      addKillFeed('⏱ 시간 초과로 소화기가 원래 자리로 돌아갔습니다');
+      kf('extinguisher_returned');
     }
   }
 }
@@ -1753,7 +1945,7 @@ function updateFoxholeDoors(){
       d.label.style.display='block';
       d.label.style.left = ((proj.x*0.5+0.5)*innerWidth)+'px';
       d.label.style.top = ((-proj.y*0.5+0.5)*innerHeight)+'px';
-      d.label.textContent = d.opened ? '문 닫기 (E)' : '문 열기 (E)';
+      d.label.textContent = d.opened ? T('label_door_open') : T('label_door_close');
     }
   }
   for (const bed of foxholeBeds){
@@ -1797,13 +1989,13 @@ function tryInteract(){
     if (!p.active) continue;
     if (Math.hypot(local.x-p.x, local.z-p.z) < 2.3){
       if (p.type==='shotgun' && !local.owned.shotgun){
-        addKillFeed('샷건을 보유하고 있지 않아 사용할 수 없습니다');
+        kf('no_shotgun');
         return;
       }
       local.ammo[p.type] = WEAPONS[p.type].mag;
       local.reserve[p.type] = WEAPONS[p.type].reserve;
       p.active = false; p.mesh.visible = false; p.respawnAt = performance.now()+20000;
-      addKillFeed(`🔫 ${WEAPONS[p.type].name} 탄약 완충!`);
+      kf('ammo_full', {weapon: wLabel(p.type)});
       updateWeaponUI();
       return;
     }
@@ -1811,14 +2003,14 @@ function tryInteract(){
   for (const p of extinguisherPickups){
     if (!p.active) continue;
     if (Math.hypot(local.x-p.x, local.z-p.z) < 2.3){
-      if (local.hasExtinguisher){ addKillFeed('이미 소화기를 들고 있습니다'); return; }
+      if (local.hasExtinguisher){ kf('extinguisher_already'); return; }
       p.active = false; p.mesh.visible = false;
       local.hasExtinguisher = true;
       local.owned.extinguisher = true;
       local.extinguisherOwner = p;
       local.extinguisherPickedAt = performance.now();
       switchWeapon('extinguisher');
-      addKillFeed('🧯 소화기를 들었습니다 (40초 안에 불을 꺼야 해요)');
+      kf('extinguisher_picked');
       return;
     }
   }
@@ -1839,14 +2031,14 @@ function openFoxholeDoor(d){
   const idx = obstacles.indexOf(d.obstacle);
   if (idx >= 0) obstacles.splice(idx, 1);
   animateFoxholeDoor(d, true);
-  addKillFeed('🚪 문을 열었습니다');
+  kf('door_open');
 }
 
 function closeFoxholeDoor(d){
   d.opened = false;
   if (obstacles.indexOf(d.obstacle) < 0) obstacles.push(d.obstacle);
   animateFoxholeDoor(d, false);
-  addKillFeed('🚪 문을 닫았습니다');
+  kf('door_close');
 }
 
 function animateFoxholeDoor(d, opening){
@@ -1868,7 +2060,7 @@ function startLyingDown(bed){
   lyingDown = true;
   currentBed = bed;
   local.x = bed.x; local.z = bed.z;
-  addKillFeed('🛏 침대에 누웠습니다 (E 또는 이동키로 일어나기)');
+  kf('bed_lie');
 }
 
 function stopLyingDown(){
@@ -1878,7 +2070,7 @@ function stopLyingDown(){
     local.z = currentBed.exitZ;
     currentBed = null;
   }
-  addKillFeed('일어나서 밖으로 나왔습니다');
+  kf('bed_up');
 }
 
 // ---------- 입력 ----------
@@ -1913,6 +2105,178 @@ document.addEventListener('keydown', e=>{
   }
 });
 document.addEventListener('keyup', e=>{ keys[e.code]=false; });
+
+// ---------- 모바일 버전 (터치 조작) ----------
+function resetMobileKeys(){
+  keys['KeyW']=keys['KeyA']=keys['KeyS']=keys['KeyD']=false;
+  keys['ShiftLeft']=keys['ControlLeft']=keys['Space']=false;
+  fireHeld=false;
+  const runBtn = document.getElementById('mcRun'); if (runBtn) runBtn.classList.remove('active');
+  const crouchBtn = document.getElementById('mcCrouch'); if (crouchBtn) crouchBtn.classList.remove('active');
+}
+
+function setMobileMode(on){
+  mobileMode = !!on;
+  try{ localStorage.setItem('bwMobile', mobileMode?'1':'0'); }catch(e){}
+  updateMobileToggleUI();
+  updateMobileControlsVisibility();
+  const hintEl = document.getElementById('hint');
+  if (hintEl) hintEl.textContent = mobileMode ? T('hint_text_mobile') : T('hint_text');
+  if (!mobileMode) resetMobileKeys();
+  else if (mode && renderer){ try{ document.exitPointerLock(); }catch(e){} }
+}
+function updateMobileToggleUI(){
+  const el = document.getElementById('mobileToggleSwitch');
+  if (el) el.classList.toggle('on', mobileMode);
+}
+function updateMobileControlsVisibility(){
+  const el = document.getElementById('mobileControls');
+  if (!el) return;
+  el.classList.toggle('show', mobileMode && gameActive);
+}
+function mcBlocked(){
+  const c = document.getElementById('console'), s = document.getElementById('shop');
+  return (c && c.classList.contains('show')) || (s && s.classList.contains('show'));
+}
+
+// -- 왼쪽 스틱: 이동 (WASD 시뮬레이션) --
+(function(){
+  const base = document.getElementById('mcJoystickBase');
+  const knob = document.getElementById('mcJoystickKnob');
+  const maxR = 42, dead = 10;
+  let activeId = null, cx = 0, cy = 0;
+  function setDir(dx, dy){
+    keys['KeyW'] = dy < -dead;
+    keys['KeyS'] = dy > dead;
+    keys['KeyA'] = dx < -dead;
+    keys['KeyD'] = dx > dead;
+  }
+  function updateKnob(clientX, clientY){
+    let dx = clientX - cx, dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist > maxR){ dx = dx / dist * maxR; dy = dy / dist * maxR; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    setDir(dx, dy);
+  }
+  base.addEventListener('pointerdown', e=>{
+    if (mcBlocked() || activeId !== null) return;
+    activeId = e.pointerId;
+    const rect = base.getBoundingClientRect();
+    cx = rect.left + rect.width/2; cy = rect.top + rect.height/2;
+    try{ base.setPointerCapture(e.pointerId); }catch(err){}
+    updateKnob(e.clientX, e.clientY);
+  });
+  base.addEventListener('pointermove', e=>{
+    if (e.pointerId !== activeId) return;
+    updateKnob(e.clientX, e.clientY);
+  });
+  function endJoystick(e){
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+    knob.style.transform = 'translate(0px, 0px)';
+    setDir(0, 0);
+  }
+  base.addEventListener('pointerup', endJoystick);
+  base.addEventListener('pointercancel', endJoystick);
+})();
+
+// -- 오른쪽 버튼: 점프(누르고 있기) --
+function bindHoldButton(id, code, onPress){
+  const el = document.getElementById(id);
+  let activeId = null;
+  el.addEventListener('pointerdown', e=>{
+    if (mcBlocked() || activeId !== null) return;
+    activeId = e.pointerId;
+    try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    el.classList.add('active');
+    keys[code] = true;
+    if (onPress) onPress();
+  });
+  function release(e){
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+    el.classList.remove('active');
+    keys[code] = false;
+  }
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointercancel', release);
+}
+// -- 달리기 / 웅크리기: 한번 누르면 켜지고, 다시 누르면 꺼지는 토글 방식 --
+function bindToggleButton(id, code, onToggleOn){
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e=>{
+    if (mcBlocked()) return;
+    e.preventDefault && e.preventDefault();
+    const turningOn = !keys[code];
+    keys[code] = turningOn;
+    el.classList.toggle('active', turningOn);
+    if (turningOn && onToggleOn) onToggleOn();
+  });
+}
+bindToggleButton('mcRun', 'ShiftLeft', ()=>registerRunEvent());
+bindToggleButton('mcCrouch', 'ControlLeft');
+bindHoldButton('mcJump', 'Space');
+
+// -- 조작 버튼 위쪽 구역: 발사 없이 시점만 회전 --
+(function(){
+  const zone = document.getElementById('mcControlZone');
+  if (!zone) return;
+  let activeId = null, lastX = 0, lastY = 0;
+  zone.addEventListener('pointerdown', e=>{
+    if (mcBlocked() || activeId !== null || !mode) return;
+    activeId = e.pointerId;
+    lastX = e.clientX; lastY = e.clientY;
+    try{ zone.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  zone.addEventListener('pointermove', e=>{
+    if (e.pointerId !== activeId) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    const sens = aiming ? 0.0018 : 0.0035;
+    yaw -= dx * sens;
+    pitch -= dy * sens;
+    pitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, pitch));
+  });
+  function endZone(e){
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+  }
+  zone.addEventListener('pointerup', endZone);
+  zone.addEventListener('pointercancel', endZone);
+})();
+
+// -- 화면 드래그: 시점 조작 + 탭/홀드: 발사 --
+(function(){
+  const layer = document.getElementById('mcLookLayer');
+  let activeId = null, lastX = 0, lastY = 0;
+  layer.addEventListener('pointerdown', e=>{
+    if (mcBlocked() || activeId !== null || !mode) return;
+    activeId = e.pointerId;
+    lastX = e.clientX; lastY = e.clientY;
+    try{ layer.setPointerCapture(e.pointerId); }catch(err){}
+    if (local.alive){
+      fireStart = true;
+      tryFire();
+      fireHeld = true;
+    }
+  });
+  layer.addEventListener('pointermove', e=>{
+    if (e.pointerId !== activeId) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    const sens = aiming ? 0.0018 : 0.0035;
+    yaw -= dx * sens;
+    pitch -= dy * sens;
+    pitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, pitch));
+  });
+  function endLook(e){
+    if (e.pointerId !== activeId) return;
+    activeId = null;
+    fireHeld = false;
+  }
+  layer.addEventListener('pointerup', endLook);
+  layer.addEventListener('pointercancel', endLook);
+})();
 
 document.addEventListener('contextmenu', e=>{ if (mode) e.preventDefault(); });
 
@@ -1972,16 +2336,16 @@ function switchWeapon(name){
 function useBandage(){
   if (!local.alive) return;
   const dc = profile.classes.doctor;
-  if (profile.equipped!=='doctor'){ addKillFeed('붕대가 없습니다 (의사 직업 장착 필요)'); return; }
-  if (dc.level<3 && local.bandageCharges<=0){ addKillFeed('붕대를 다 썼습니다'); return; }
-  if (local.hp>=local.maxHp){ addKillFeed('체력이 이미 가득 찼습니다'); return; }
+  if (profile.equipped!=='doctor'){ kf('no_bandage_class'); return; }
+  if (dc.level<3 && local.bandageCharges<=0){ kf('bandage_empty'); return; }
+  if (local.hp>=local.maxHp){ kf('hp_full'); return; }
   const now = performance.now();
-  if (now - local.lastBandage < WEAPONS.bandage.cooldown){ addKillFeed('붕대 재사용 대기중...'); return; }
+  if (now - local.lastBandage < WEAPONS.bandage.cooldown){ kf('bandage_cooldown'); return; }
   local.lastBandage = now;
   local.hp = Math.min(local.maxHp, local.hp + WEAPONS.bandage.heal);
   if (dc.level<3) local.bandageCharges--;
   updateHUD();
-  addKillFeed(`붕대 사용 (+${WEAPONS.bandage.heal} HP)`);
+  kf('bandage_use', {n: WEAPONS.bandage.heal});
   setViewmodel('bandage');
   setTimeout(()=>{ if (local.alive) setViewmodel(local.weapon); }, 700);
 
@@ -2017,7 +2381,7 @@ function submitConsole(){
     if (bc.level >= 2) local.owned.grenade = true;
     saveProfile();
     showCheatMsg();
-    addKillFeed('🎖 치트로 폭탄맨 직업을 얻었습니다!');
+    kf('cheat_bomber');
     updateWeaponUI(); updateHUD(); buildShop();
   }
   requestPointerLock();
@@ -2038,8 +2402,18 @@ function closeShop(){
   document.getElementById('shop').classList.remove('show');
   if (mode && renderer) requestPointerLock();
 }
+const CLASS_PROG_KEYS = {
+  runner:['prog_runner1','prog_runner2'], doctor:['prog_doctor1','prog_doctor2'],
+  bomber:['prog_bomber1','prog_bomber2'], painter:['prog_painter1','prog_painter2'],
+  police:['prog_police1','prog_police2'], firefighter:['prog_firefighter1','prog_firefighter2']
+};
+function classProgressCount(key, c){
+  if (key==='runner') return c.level>=2 ? (c.teamRuns||0) : (c.runs||0);
+  if (key==='bomber') return c.level>=2 ? (c.heavyUses||0) : (c.rpgUses||0);
+  return c.uses||0;
+}
 function buildShop(){
-  document.getElementById('shopCoins').textContent = `보유 코인: ${local.coins}`;
+  document.getElementById('shopCoins').textContent = `${T('coins_label')}: ${local.coins}`;
   const list = document.getElementById('shopList');
   list.innerHTML='';
   for (const key of SHOP_ORDER){
@@ -2047,12 +2421,11 @@ function buildShop(){
     const owned = local.owned[key];
     const div = document.createElement('div');
     div.className='shopItem';
-    const desc = key==='shotgun' ? '근거리 산탄, 상체 150 / 하체 100 데미지' :
-                 '투척, 직격 상체80·하체70 / 스플래시 50';
-    div.innerHTML = `<div class="info"><b>${w.name} (${w.cost} 코인)</b><span>${desc}</span></div>`;
+    const desc = T('shopdesc_'+key);
+    div.innerHTML = `<div class="info"><b>${wLabel(key)} (${w.cost} ${T('coins_label')})</b><span>${desc}</span></div>`;
     const btn = document.createElement('button');
     btn.className='buyBtn';
-    btn.textContent = owned ? '보유중' : '구매';
+    btn.textContent = owned ? T('shop_owned') : T('shop_buy');
     if (owned) btn.classList.add('owned');
     btn.disabled = owned || local.coins < w.cost;
     btn.onclick = ()=>buyItem(key);
@@ -2062,7 +2435,7 @@ function buildShop(){
 
   // 직업(클래스) 섹션
   const jobHeader = document.createElement('h2');
-  jobHeader.textContent = '💼 직업';
+  jobHeader.textContent = T('shop_jobs');
   jobHeader.style.marginTop = '18px';
   list.appendChild(jobHeader);
 
@@ -2074,35 +2447,21 @@ function buildShop(){
     div.style.flexDirection = 'column';
     div.style.alignItems = 'flex-start';
     if (!c.owned){
-      div.innerHTML = `<div class="info"><b>${def.name} (${def.cost} 코인)</b><span>${def.desc1}</span></div>`;
+      div.innerHTML = `<div class="info"><b>${cLabel(key)} (${def.cost} ${T('coins_label')})</b><span>${cdesc(key,1)}</span></div>`;
       const btn = document.createElement('button');
       btn.className = 'buyBtn';
-      btn.textContent = '구매';
+      btn.textContent = T('shop_buy');
       btn.disabled = local.coins < def.cost;
       btn.onclick = ()=>buyClass(key);
       btn.style.marginTop = '8px';
       div.appendChild(btn);
     } else {
-      const descs = [def.desc1, def.desc2, def.desc3];
-      let progress = '';
-      if (key==='runner'){
-        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `팀 달리기 ${c.teamRuns||0}/10` : `달리기 ${c.runs||0}/100`;
-      } else if (key==='doctor'){
-        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `붕대 사용 ${c.uses||0}/30` : `붕대 사용 ${c.uses||0}/10`;
-      } else if (key==='bomber'){
-        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `RPG+수류탄 ${c.heavyUses||0}/100` : `RPG 사용 ${c.rpgUses||0}/50`;
-      } else if (key==='painter'){
-        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `페인트건 사용 ${c.uses||0}/150` : `페인트건 사용 ${c.uses||0}/50`;
-      } else if (key==='police'){
-        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `특수권총 사용 ${c.uses||0}/100` : `특수권총 사용 ${c.uses||0}/30`;
-      } else {
-        progress = c.level>=3 ? '최고 레벨 달성' : c.level>=2 ? `소화기 사용 ${c.uses||0}/150` : `소화기 사용 ${c.uses||0}/50`;
-      }
-      div.innerHTML = `<div class="info"><b>${def.name} - Lv.${c.level}</b><span>${descs[c.level-1]||''}</span><span style="color:#8fd19e;">${progress}</span></div>`;
+      const progress = c.level>=3 ? T('shop_maxlevel') : fmt(T(CLASS_PROG_KEYS[key][c.level-1]), {n: classProgressCount(key,c)});
+      div.innerHTML = `<div class="info"><b>${cLabel(key)} - Lv.${c.level}</b><span>${cdesc(key, c.level)||''}</span><span style="color:#8fd19e;">${progress}</span></div>`;
       const equipBtn = document.createElement('button');
       const isEquipped = profile.equipped === key;
       equipBtn.className = 'buyBtn';
-      equipBtn.textContent = isEquipped ? '✅ 장착됨 (해제)' : '장착';
+      equipBtn.textContent = isEquipped ? T('shop_equipped') : T('shop_equip');
       equipBtn.style.marginTop = '8px';
       equipBtn.style.background = isEquipped ? '#2ecc71' : '#2ecc71cc';
       equipBtn.onclick = ()=>equipClass(key);
@@ -2140,7 +2499,7 @@ function tryFire(){
     return;
   }
   if (w.type==='hitscan'){
-    if (local.ammo[local.weapon] <= 0){ addKillFeed('탄약 없음! R로 재장전'); return; }
+    if (local.ammo[local.weapon] <= 0){ kf('no_ammo'); return; }
     if (local.reloading) return;
     local.ammo[local.weapon]--;
     local.lastFire = now;
@@ -2190,8 +2549,7 @@ function doExtinguish(w){
   best.hp -= 16 * getFirefighterSpeedMul();
   if (best.hp <= 0){
     extinguishFire(best);
-    addKillFeed('🧯 불을 껐습니다!');
-    returnExtinguisher();
+    kf('fire_out');
     registerFirefighterUse();
     // 레벨3: 불을 끄면 상대팀 쪽으로 옮겨붙음
     if (profile.equipped==='firefighter' && profile.classes.firefighter.level>=3){
@@ -2430,10 +2788,10 @@ function onLocalDeath(){
   document.exitPointerLock();
   send({t:'dead'});
   let t=3;
-  document.getElementById('respawnTimer').textContent = `${t}초 후 부활...`;
+  document.getElementById('respawnTimer').textContent = fmt(T('respawn_timer'), {n:t});
   const iv = setInterval(()=>{
     t--;
-    document.getElementById('respawnTimer').textContent = `${t}초 후 부활...`;
+    document.getElementById('respawnTimer').textContent = fmt(T('respawn_timer'), {n:t});
     if (t<=0){
       clearInterval(iv);
       respawnLocal();
@@ -2467,7 +2825,7 @@ function reload(){
   if (local.ammo[local.weapon] >= magCap) return;
   if (local.reserve[local.weapon] <= 0) return;
   local.reloading = true;
-  addKillFeed('재장전중...');
+  kf('reloading');
   setTimeout(()=>{
     const need = magCap - local.ammo[local.weapon];
     const take = Math.min(need, local.reserve[local.weapon]);
@@ -2497,12 +2855,12 @@ function updateHUD(){
 }
 function updateWeaponUI(){
   const w = WEAPONS[local.weapon];
-  document.getElementById('weaponName').textContent = w.name;
+  document.getElementById('weaponName').textContent = wLabel(local.weapon);
   if (local.weapon==='paintgun') document.getElementById('ammoText').textContent = '∞ / ∞';
   else if (w.type==='hitscan') document.getElementById('ammoText').textContent = `${local.ammo[local.weapon]} / ${local.reserve[local.weapon]}`;
-  else if (w.type==='melee') document.getElementById('ammoText').textContent = '근접무기';
-  else if (w.type==='grenade' || w.type==='rocket') document.getElementById('ammoText').textContent = '투척/발사';
-  else if (w.type==='extinguish') document.getElementById('ammoText').textContent = '분사 도구';
+  else if (w.type==='melee') document.getElementById('ammoText').textContent = T('melee_label');
+  else if (w.type==='grenade' || w.type==='rocket') document.getElementById('ammoText').textContent = T('throw_label');
+  else if (w.type==='extinguish') document.getElementById('ammoText').textContent = T('spray_label');
   document.querySelectorAll('.slot').forEach(s=>s.classList.remove('active'));
   const map = {rifle:1,pistol:2,katana:3,shotgun:4,grenade:5,rpg:6,paintgun:7,specialpistol:8,taser:9,extinguisher:0};
   const activeSlot = document.querySelector(`.slot[data-slot="${map[local.weapon]}"]`);
@@ -2678,12 +3036,18 @@ function applyDamageGeneric(target, dmg, name, byPlayer, killerTeam){
 }
 
 function onTeamCharDeath(b, byPlayer, killerTeam){
-  addKillFeed(`${b.team==='red'?'🔴빨간팀':'🔵파란팀'} 전사${byPlayer?' (플레이어 처치!)':''}`);
+  addKillFeed(fmt(T('kf_team_died'), {team: b.team==='red'?T('team_red'):T('team_blue'), killed: byPlayer?T('kf_killed_suffix'):''}));
   if (byPlayer){ local.coins += 20; saveProfile(); onPlayerKill(); }
   addTeamScore(killerTeam || (b.team==='red' ? 'blue' : 'red'));
+  if (b.hasExtinguisher && b.extinguisherPickup){
+    b.extinguisherPickup.active = true;
+    if (b.extinguisherPickup.mesh) b.extinguisherPickup.mesh.visible = true;
+  }
+  b.hasExtinguisher = false; b.extinguisherPickup = null; b.path = null; b.stuckTime = 0;
   if (b.mesh) b.mesh.visible = false;
   setTimeout(()=>{
     b.alive = true; b.hp = b.maxHp; b.x = b.spawnX; b.z = b.spawnZ;
+    b.path = null; b.stuckTime = 0;
     if (b.mesh){ b.mesh.position.set(b.x, 0, b.z); b.mesh.visible = true; }
   }, 5000);
 }
@@ -2738,7 +3102,7 @@ function botAttemptShot(bot, nearest, nearestD){
     let dmg = res.hitInfo.part==='lower' ? 13 : 20;
     if (bot.weapon==='shotgun') dmg = Math.round(dmg*1.6);
     if (isMelee) dmg = 25;
-    const wname = isMelee ? '적 카타나' : '적 ' + WEAPONS[bot.weapon].name;
+    const wname = isMelee ? T('w_katana') : wLabel(bot.weapon);
     applyDamageGeneric(res.hitInfo.target, dmg, wname, false, bot.team);
     if (!isMelee && Math.random() < 0.1) trySpawnFireWithEffects(res.hitInfo.target.x, res.hitInfo.target.z, bot.team);
   }
@@ -2764,6 +3128,31 @@ function botAttemptRPG(bot, nearest, nearestD){
   resolveExplosion(pos, WEAPONS.rpg, bot.team, bot, false);
 }
 
+// ---------- 봇 이동 목적지(경로) 결정 ----------
+function randomPointOnIsland(cx){
+  return { x: cx + (Math.random()*2-1)*(ISLAND_HALF_X-5), z: (Math.random()*2-1)*(ISLAND_HALF_Z-5) };
+}
+function pickBotDestination(bot){
+  const mid = (ISLAND_A_X+ISLAND_B_X)/2;
+  const currentX = bot.x < mid ? ISLAND_A_X : ISLAND_B_X;
+  const otherX = currentX===ISLAND_A_X ? ISLAND_B_X : ISLAND_A_X;
+  const r = Math.random();
+  if (r < 0.55){
+    // 지금 있는 섬 안에서 이곳저곳(옆/뒤/앞) 배회
+    bot.path = [randomPointOnIsland(currentX)];
+  } else {
+    // 반대편 섬으로 이동 - 다리와 터널 중 랜덤 선택 (다리가 없으면 무조건 터널)
+    const useTunnel = !bridgeIntact || Math.random() < 0.5;
+    const laneZ = useTunnel
+      ? (TUNNEL_Z + (Math.random()*2-1)*(TUNNEL_HALF_WID-0.8))
+      : ((Math.random()*2-1)*(BRIDGE_HALF_WID-1));
+    const fromEdge = currentX===ISLAND_A_X ? -22 : 22;
+    const toEdge = -fromEdge;
+    const dest = randomPointOnIsland(otherX);
+    bot.path = [ {x:fromEdge, z:laneZ}, {x:toEdge, z:laneZ}, dest ];
+  }
+}
+
 function updateTeamChar(bot, dt){
   if (!bot.alive){
     if (bot.mesh) bot.mesh.visible = false;
@@ -2779,19 +3168,78 @@ function updateTeamChar(bot, dt){
     if (d<nearestD){ nearestD=d; nearest=t; }
   }
 
-  let tx, tz;
-  if (nearest && nearestD < 16){
-    tx = nearest.x; tz = nearest.z;
-  } else {
-    tx = 0; tz = bot.laneZ + (Math.random()-0.5)*2;
+  // 화재 대응: 급박한 근접 전투 중이 아니면 근처 불을 소화기로 끄러 감
+  let fireTask = null;
+  if (fires.length && !(nearest && nearestD < 10)){
+    let nf=null, nfD=Infinity;
+    for (const f of fires){ const d=Math.hypot(f.x-bot.x, f.z-bot.z); if (d<nfD){ nfD=d; nf=f; } }
+    if (nf && nfD < 45){
+      if (!bot.hasExtinguisher){
+        let np=null, npD=Infinity;
+        for (const p of extinguisherPickups){
+          if (!p.active) continue;
+          const d = Math.hypot(p.x-bot.x, p.z-bot.z);
+          if (d<npD){ npD=d; np=p; }
+        }
+        if (np){
+          if (npD < 1.3){
+            bot.hasExtinguisher = true; bot.extinguisherPickup = np;
+            np.active = false; if (np.mesh) np.mesh.visible = false;
+          } else fireTask = { x:np.x, z:np.z };
+        }
+      }
+      if (bot.hasExtinguisher){
+        if (nfD < 7){
+          fireTask = { x:bot.x, z:bot.z };
+          nf.hp -= 55*dt;
+          if (nf.hp <= 0){
+            extinguishFire(nf);
+            if (bot.extinguisherPickup){ bot.extinguisherPickup.active = true; if (bot.extinguisherPickup.mesh) bot.extinguisherPickup.mesh.visible = true; bot.extinguisherPickup = null; }
+            bot.hasExtinguisher = false;
+          }
+        } else fireTask = { x:nf.x, z:nf.z };
+      }
+    }
   }
+
+  let tx, tz;
+  if (fireTask){
+    tx = fireTask.x; tz = fireTask.z;
+  } else if (nearest && nearestD < 16){
+    tx = nearest.x; tz = nearest.z;
+    bot.path = null;
+  } else {
+    if (!bot.path || !bot.path.length) pickBotDestination(bot);
+    const wp = bot.path[0];
+    if (Math.hypot(wp.x-bot.x, wp.z-bot.z) < 2.5){
+      bot.path.shift();
+      if (!bot.path.length) pickBotDestination(bot);
+    }
+    const cur = bot.path[0];
+    tx = cur.x; tz = cur.z;
+  }
+
   const dx = tx-bot.x, dz = tz-bot.z;
   const dlen = Math.hypot(dx,dz) || 1;
   const nx = bot.x + (dx/dlen)*bot.speed*dt;
   const nz = bot.z + (dz/dlen)*bot.speed*dt;
-  if (groundHeightAt(nx,nz)!==null && !isBlockedByObstacle(nx,nz)){ bot.x=nx; bot.z=nz; }
-  else if (groundHeightAt(nx,bot.z)!==null && !isBlockedByObstacle(nx,bot.z)){ bot.x=nx; }
-  else if (groundHeightAt(bot.x,nz)!==null && !isBlockedByObstacle(bot.x,nz)){ bot.z=nz; }
+  let moved = false;
+  if (groundHeightAt(nx,nz)!==null && !isBlockedByObstacle(nx,nz)){ bot.x=nx; bot.z=nz; moved=true; }
+  else if (groundHeightAt(nx,bot.z)!==null && !isBlockedByObstacle(nx,bot.z)){ bot.x=nx; moved=true; }
+  else if (groundHeightAt(bot.x,nz)!==null && !isBlockedByObstacle(bot.x,nz)){ bot.z=nz; moved=true; }
+  else {
+    // 벽/장애물에 막혔으면 옆으로 비껴서 피해감
+    const perpX = -dz/dlen, perpZ = dx/dlen;
+    for (const sign of [1,-1]){
+      const sx = bot.x + perpX*sign*bot.speed*dt;
+      const sz = bot.z + perpZ*sign*bot.speed*dt;
+      if (groundHeightAt(sx,sz)!==null && !isBlockedByObstacle(sx,sz)){ bot.x=sx; bot.z=sz; moved=true; break; }
+    }
+  }
+  if (!moved){
+    bot.stuckTime = (bot.stuckTime||0) + dt;
+    if (bot.stuckTime > 1.5){ bot.path = null; bot.stuckTime = 0; }
+  } else bot.stuckTime = 0;
 
   const gY = groundHeightAt(bot.x, bot.z);
   if (bot.mesh) bot.mesh.position.set(bot.x, gY===null?0:gY, bot.z);
@@ -2834,11 +3282,11 @@ function updateEnemyHUD(){
     const blueAlive = blueChars.filter(c=>c.alive).length;
     const blueHpPct = blueChars.length ? Math.max(0, blueChars.reduce((s,c)=>s+c.hp,0) / (blueChars.length*100) * 100) : 0;
     if (bar) bar.style.width = blueHpPct + '%';
-    if (label) label.textContent = `🔴빨간팀 생존 ${redAlive}/3 · 🔵파란팀 생존 ${blueAlive}/3`;
+    if (label) label.textContent = `${T('team_red')} ${T('alive_label')} ${redAlive}/3 · ${T('team_blue')} ${T('alive_label')} ${blueAlive}/3`;
   } else {
     const pct = Math.max(0, remote.hp/(remote.maxHp||100)*100);
     if (bar) bar.style.width = pct+'%';
-    if (label) label.textContent = `${remote.nickname||'상대'} - ${Math.max(0,Math.round(remote.hp))} HP`;
+    if (label) label.textContent = `${remote.nickname||T('enemy_default')} - ${Math.max(0,Math.round(remote.hp))} HP`;
   }
 }
 
@@ -2860,7 +3308,7 @@ function updateNameTag(){
     tag.style.left = ((proj.x*0.5+0.5)*innerWidth)+'px';
     tag.style.top = ((-proj.y*0.5+0.5)*innerHeight)+'px';
     const pct = Math.max(0, Math.min(100, nearest.hp/nearest.maxHp*100));
-    tag.innerHTML = `<div class="nm">파란팀 AI (${Math.max(0,Math.round(nearest.hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
+    tag.innerHTML = `<div class="nm">${T('team_blue_ai')} (${Math.max(0,Math.round(nearest.hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
     return;
   }
   if (!remote.mesh){ tag.style.display='none'; return; }
@@ -2871,7 +3319,7 @@ function updateNameTag(){
   tag.style.display='block';
   tag.style.left = ((proj.x*0.5+0.5)*innerWidth) + 'px';
   tag.style.top = ((-proj.y*0.5+0.5)*innerHeight) + 'px';
-  const name = remote.nickname||'상대';
+  const name = remote.nickname||T('enemy_default');
   const pct = Math.max(0, Math.min(100, remote.hp/(remote.maxHp||100)*100));
   tag.innerHTML = `<div class="nm">${name} (${Math.max(0,Math.round(remote.hp))})</div><div class="hpBarBg"><div class="hpBarFill" style="width:${pct}%"></div></div>`;
 }
