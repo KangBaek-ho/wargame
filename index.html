@@ -66,7 +66,7 @@
   #hostCodeBox { color:#ffd166; font-size:22px; font-weight:900; letter-spacing:3px; margin:10px 0; background:#000a; padding:10px 20px; border-radius:8px; }
   #connStatus { color:#8fd19e; font-size:13px; min-height:18px; }
 
-  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; color:#fff; }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:66; display:none; color:#fff; }
   #crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:22px; height:22px; }
   #crosshair::before,#crosshair::after { content:''; position:absolute; background:#fff; box-shadow:0 0 3px #000; }
   #crosshair::before { left:50%; top:0; width:2px; height:100%; transform:translateX(-50%); }
@@ -85,7 +85,9 @@
   #killFeed { position:absolute; top:20px; left:24px; font-size:14px; color:#fff; text-shadow:0 0 4px #000; display:flex; flex-direction:column; gap:4px; }
   #hint { position:absolute; bottom:60px; left:50%; transform:translateX(-50%); font-size:13px; color:#cde; text-shadow:0 0 4px #000; text-align:center; }
   #weaponSlots { position:absolute; bottom:56px; right:24px; display:flex; gap:6px; }
+  body.mobileHud #weaponSlots { bottom:230px; right:16px; }
   .slot { position:relative; width:40px; height:40px; background:#0007; border:1px solid #fff5; border-radius:6px; display:flex; align-items:center; justify-content:center; color:#8899aa; }
+  body.mobileHud .slot { pointer-events:auto; cursor:pointer; touch-action:none; }
   .slot.active { border-color:#ffd166; }
   .slot.active svg { filter:drop-shadow(0 0 3px #ffd166); }
   .slot.locked { display:none; }
@@ -817,6 +819,7 @@ let currentLang = 'ko';
 try{ const saved = localStorage.getItem('bwLang'); if (saved==='ko'||saved==='en') currentLang = saved; }catch(e){}
 let mobileMode = false;
 try{ mobileMode = localStorage.getItem('bwMobile')==='1'; }catch(e){}
+if (document.body) document.body.classList.toggle('mobileHud', mobileMode);
 
 function T(key){ const dict = I18N[currentLang] || I18N.ko; return dict[key]!==undefined ? dict[key] : key; }
 function fmt(str, params){
@@ -2120,6 +2123,7 @@ function setMobileMode(on){
   try{ localStorage.setItem('bwMobile', mobileMode?'1':'0'); }catch(e){}
   updateMobileToggleUI();
   updateMobileControlsVisibility();
+  document.body.classList.toggle('mobileHud', mobileMode);
   const hintEl = document.getElementById('hint');
   if (hintEl) hintEl.textContent = mobileMode ? T('hint_text_mobile') : T('hint_text');
   if (!mobileMode) resetMobileKeys();
@@ -2216,6 +2220,20 @@ function bindToggleButton(id, code, onToggleOn){
 bindToggleButton('mcRun', 'ShiftLeft', ()=>registerRunEvent());
 bindToggleButton('mcCrouch', 'ControlLeft');
 bindHoldButton('mcJump', 'Space');
+
+// -- 인벤토리(무기 슬롯) 클릭으로 무기 변경 (모바일 모드) --
+(function(){
+  const slotWeapons = {'1':'rifle','2':'pistol','3':'katana','4':'shotgun','5':'grenade','6':'rpg','7':'paintgun','8':'specialpistol','9':'taser','0':'extinguisher'};
+  document.querySelectorAll('.slot').forEach(el=>{
+    el.addEventListener('pointerdown', e=>{
+      if (!mobileMode || mcBlocked()) return;
+      if (el.classList.contains('locked')) return;
+      e.preventDefault(); e.stopPropagation();
+      const key = slotWeapons[el.getAttribute('data-slot')];
+      if (key && local.alive) switchWeapon(key);
+    });
+  });
+})();
 
 // -- 조작 버튼 위쪽 구역: 발사 없이 시점만 회전 --
 (function(){
